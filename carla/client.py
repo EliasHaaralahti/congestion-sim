@@ -1,5 +1,4 @@
 import carla
-import time
 import numpy as np
 import h5py
 
@@ -11,15 +10,30 @@ def process_img(image, images):
     reshaped_data = img_data.reshape((img_height, img_width, 4))[:, :, :3]
     images.append(reshaped_data)
 
+def process_transform(transform, transforms):
+    state_tuple = (transform.location.x, transform.location.y, transform.rotation.yaw)
+    transforms.append(state_tuple)
+
 actor_list = []
+
 images_1 = []
 images_2 = []
 
+transforms_1 = []
+transforms_2 = []
+
 try:
-    client = carla.Client('localhost', 2000)
+    client = carla.Client('192.168.0.114', 2000)
     world = client.get_world()
 
+    original_settings = world.get_settings()
+    settings = world.get_settings()
+    settings.synchronous_mode = True
+    settings.fixed_delta_seconds = 1/60
+    world.apply_settings(settings)
+
     traffic_manager = client.get_trafficmanager()
+    traffic_manager.set_synchronous_mode(True)
 
     blueprint_library = world.get_blueprint_library()
 
@@ -71,13 +85,24 @@ try:
 
     f = h5py.File('data.hdf5', 'w')
     sensors_group = f.create_group('sensors')
-    
-    time.sleep(10)
+    state_group = f.create_group('state')
 
+    while True:
+        world.tick()
+        process_transform(camera_1.get_transform(), transforms_1)
+        process_transform(camera_2.get_transform(), transforms_2)
+
+except KeyboardInterrupt:
+        print("\nCancelled by user")
 finally:
-    print("Saving recordings")
+    camera_1.stop()
+    camera_2.stop()
+    world.apply_settings(original_settings)
+    print("Saving data to HDF5 file")
     sensors_group.create_dataset('vehicle_1', data=images_1)
     sensors_group.create_dataset('vehicle_2', data=images_2)
+    state_group.create_dataset('vehicle_1', data=transforms_1)
+    state_group.create_dataset('vehicle_2', data=transforms_2)
     print("Destroying actors")
     for actor in actor_list:
         actor.destroy()
