@@ -1,16 +1,24 @@
 import carla
 import numpy as np
 import h5py
-from queue import Queue
-from queue import Empty
+import io
+from PIL import Image
+from queue import Queue, Empty
 
-img_width = 1280
-img_height = 720
+img_width = 640
+img_height = 480
+
+n_frames = 800
+frames_per_second = 60
 
 def process_img(image, images):
     img_data = np.array(image.raw_data)
     reshaped_data = img_data.reshape((img_height, img_width, 4))[:, :, :3]
-    images.append(reshaped_data)
+    img = Image.fromarray(reshaped_data)
+    buf = io.BytesIO()
+    img.save(buf, format='JPEG')
+    byte_img = buf.getvalue()
+    images.append(np.asarray(byte_img))
 
 def process_transform(transform, transforms):
     state_tuple = (transform.location.x, transform.location.y, transform.rotation.yaw)
@@ -37,7 +45,7 @@ try:
     original_settings = world.get_settings()
     settings = world.get_settings()
     settings.synchronous_mode = True
-    settings.fixed_delta_seconds = 1/60
+    settings.fixed_delta_seconds = 1 / frames_per_second
     world.apply_settings(settings)
 
     traffic_manager = client.get_trafficmanager()
@@ -91,11 +99,16 @@ try:
     traffic_manager.set_path(vehicle_1, route_1)
     traffic_manager.set_path(vehicle_2, route_2)
 
-    f = h5py.File('data.hdf5', 'w')
+    filename = 'data' # TODO
+
+    f = h5py.File(f'runs/{filename}.hdf5', 'w')
+    sensors_group = f.create_group('metadata') # TODO
     sensors_group = f.create_group('sensors')
     state_group = f.create_group('state')
 
-    while True:
+    curr_frame = 0
+
+    while curr_frame < n_frames:
         world.tick()
         process_transform(camera_1.get_transform(), transforms_1)
         process_transform(camera_2.get_transform(), transforms_2)
@@ -108,6 +121,7 @@ try:
                     process_img(data[0], images_2)
         except Empty:
             print("Some of the sensor information is missed")
+        curr_frame += 1
 
 except KeyboardInterrupt:
         print("\nCancelled by user")
