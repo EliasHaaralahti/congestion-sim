@@ -1,5 +1,7 @@
 ##### Custom ignores
 *.pt
+*.h5
+*.hdf5
 
 ##### Below is default github python gitignore template
 
