@@ -2,6 +2,7 @@
 *.pt
 *.h5
 *.hdf5
+results/
 
 ##### Below is default github python gitignore template
 
