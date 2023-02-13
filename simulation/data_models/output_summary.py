@@ -7,10 +7,10 @@ class DetectionData:
     Data class for describing a bounding box detection
     produced by the model.
     """
-    box_width: float # Width of the bounding box
-    box_height: float # Height of the bounding box
-    box_x: float # box x coordinate in the image
-    box_y: float # Box y coordinate in the image
+    xmin: float # Width of the bounding box
+    xmax: float # Height of the bounding box
+    ymin: float # box x coordinate in the image
+    ymax: float # Box y coordinate in the image
 
 
 @dataclass
@@ -22,4 +22,5 @@ class OutputSummary:
     node_id: str
     agent_x: float # X position of agent in the world
     agent_y: float # Y position of agent in the world
+    direction: float # TODO: Is this direction needed if AgentState also has direction?
     detections: list[DetectionData] # Cars detected by yolo

@@ -15,5 +15,5 @@ class Model:
         self.model = torch.hub.load(
             'ultralytics/yolov5', 'yolov5s', pretrained=True)
 
-    def forward(self, image: np.ndarray):
+    def forward(self, image: np.ndarray) -> object:
         return self.model(image)
