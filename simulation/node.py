@@ -16,13 +16,14 @@ class Node():
     """
     # Initialize with sympy environment
     def __init__(self, env: object, node_id: str, dataloader: DataLoader,
-                model: Model, data_pipe: dict):
+                model: Model, data_pipe: dict, result_storage_pipe: dict):
         self.env: object = env
         self.node_id: str = node_id
         self.dataloader: DataLoader = dataloader
         self.model: Model = model
         # For now store model output for later processing here
         self.data_pipe = data_pipe
+        self.result_storage_pipe = result_storage_pipe
 
     def read_data(self) -> Tuple[AgentState, ndarray] :
         """
@@ -74,8 +75,23 @@ class Node():
         while True:
             state, image = self.read_data()
             raw_output = self.model.forward(image)
-            # TODO: Communicate output to other nodes/central computer?
+            # Debugging / visualization
             output = self.summarize_output(raw_output, state)
+
+            # TODO: Another temporary trick for json friendliness :)
+            # TODO: Only one detection per agent/timestep stored currently!
+            json_friendly_list = []
+            if len(output.detections) > 0:
+                for detection in output.detections:
+                    json_friendly = (
+                        detection.xmin,
+                        detection.xmax,
+                        detection.ymin,
+                        detection.ymax,
+                    )
+                    json_friendly_list.append(json_friendly)
+            self.result_storage_pipe['yolo_images'][self.node_id].append(json_friendly_list)
+            
             self.data_pipe[self.node_id] = output
             yield self.env.timeout(1)
             

@@ -1,7 +1,7 @@
 from typing import List, Tuple
-import json
 from data_models.output_summary import OutputSummary, DetectionData
-from data_models.agent_state import AgentState, DetectedAgentState
+from data_models.agent_state import DetectedAgentState
+import numpy as np
 
 
 def process_detection(data: DetectionData) -> Tuple[float]:
@@ -13,7 +13,7 @@ def process_detection(data: DetectionData) -> Tuple[float]:
 
     detected_height = y_max - y_min
     # Assume average car height is between 1.5 and 1.8 meters
-    car_average_height = 165 # in mm
+    car_average_height = 165 # in cm
 
     # Temporary 'formula' to calculate distance between camera and object. 
     # TODO: Implementa better solution. Possibly using carla focal length?
@@ -37,7 +37,7 @@ def process_agent_data(data: OutputSummary) -> dict:
     return processed_detections
 
 
-def process(detections: dict, node_data: dict):
+def process(detections: dict, data_pipe: dict, result_storage_pipe: list):
     """
     Visualize the 'agents' found while processing the image date
     Color indicates which node was behind the detection.
@@ -52,7 +52,7 @@ def process(detections: dict, node_data: dict):
     # which is array of arrays [[x,y]]
     processed_agents = {}
     for agent in detections:
-        agentState: OutputSummary = node_data[agent]
+        agentState: OutputSummary = data_pipe[agent]
         node_x = agentState.agent_x
         node_y = agentState.agent_y
         node_direction = agentState.direction
@@ -69,22 +69,18 @@ def process(detections: dict, node_data: dict):
             detected_agent_offset = detection.offset
 
             # Calculate new agent position based on distance and width offset.
-            # TODO: Calculate x and y change based on direction and distance
-            # Below is a TEMPORARY test for visualization.
-            processed_x = node_x + detected_agent_distance
-            processed_y = node_y + detected_agent_distance
+            # TODO: width offset not implemented. Distance not used
+            # CARLA seems to handle direction according to unit circle.
+            # Therefore x=cos(angle), y=sin(angle)
+            processed_x = np.cos(np.deg2rad(node_direction)) * node_x #+ detected_agent_distance)
+            processed_y = np.sin(np.deg2rad(node_direction)) * node_y #* detected_agent_distance)
     
             processed_agents[agent]['detected'].append( [processed_x, processed_y] )
 
-    write_data(processed_agents)
+    result_storage_pipe['processing_results'].append(processed_agents)
 
 
-def write_data(processed_data):
-    with open('results/result.json', 'w') as file:
-        json.dump(processed_data, file)
-
-
-def processor(env, data_pipe: dict):
+def processor(env, data_pipe: dict, result_storage_pipe: list):
     # Dictionary to hold new detected 'agents' for each actual node.
     # Dictionary key corresponds to node that detected the agent.
     detected_agents = {}
@@ -93,6 +89,6 @@ def processor(env, data_pipe: dict):
             results = process_agent_data(data_pipe[agent])
             detected_agents[agent] = results
 
-        process(detected_agents, data_pipe)
+        process(detected_agents, data_pipe, result_storage_pipe)
         yield env.timeout(1)
         
