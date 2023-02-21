@@ -72,10 +72,10 @@ def process(detections: dict, data_pipe: dict, result_storage_pipe: list):
             # TODO: width offset not implemented. Distance not used
             # CARLA seems to handle direction according to unit circle.
             # Therefore x=cos(angle), y=sin(angle)
-            processed_x = np.cos(np.deg2rad(node_direction)) * node_x #+ detected_agent_distance)
-            processed_y = np.sin(np.deg2rad(node_direction)) * node_y #* detected_agent_distance)
+            target_x = node_x + (detected_agent_distance * np.cos(np.deg2rad(node_direction)))
+            target_y = node_y + (detected_agent_distance * np.sin(np.deg2rad(node_direction)))
     
-            processed_agents[agent]['detected'].append( [processed_x, processed_y] )
+            processed_agents[agent]['detected'].append( [target_x, target_y] )
 
     result_storage_pipe['processing_results'].append(processed_agents)
 

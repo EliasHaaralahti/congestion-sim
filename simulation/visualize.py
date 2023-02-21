@@ -2,6 +2,7 @@ import os
 import json
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+from matplotlib.markers import MarkerStyle
 from data import DataLoader
 
 RESULTS_FILE = "result.json"
@@ -47,10 +48,14 @@ while timestep < 2000:
                 rect = patches.Rectangle((x_min, y_min), width, height, linewidth=1, edgecolor='r', facecolor='none')
                 axes[0, i].add_patch(rect)
 
-        rotation = agent_data['direction'] + 180
+        # Rotation difference between CARLA (unit circle -> right = angle 0)
+        # Matplotlib 0 angle = up. -90 to compensate.
+        rotation = agent_data['direction'] - 90
+        m = MarkerStyle(6)
+        m._transform.rotate_deg(rotation)
         axes[1,1].scatter(
             agent_data['x'], agent_data['y'], c=colors[i], 
-            edgecolors="black", marker=(3, 0, rotation), s=100)
+            marker=m, s=100)
         axes[1,1].set_xlim([-100, 200])
         axes[1,1].set_ylim([-100, 200])
         
