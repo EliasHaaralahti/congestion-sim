@@ -1,7 +1,6 @@
 {
     "python.linting.enabled": true,
     "python.linting.pylintEnabled": true,
-    "python.linting.pylintPath": "venv/Scripts/pylint",
     "python.linting.pylintArgs": [
         "--disable=C0111", 
         "--disable=W0511"
