@@ -1,11 +1,11 @@
-import h5py
-import numpy as np
 import io
 from queue import Queue, Empty
+import h5py
+import numpy as np
 from PIL import Image
 
 class Recorder:
-    def __init__(self, img_width, img_height, filename='data'):
+    def __init__(self, img_width: int, img_height: int, filename: str='data'):
         self.img_width = img_width
         self.img_height = img_height
         self.sensor_queue = Queue()
@@ -13,10 +13,10 @@ class Recorder:
         self.sensors_group = self.h5file.create_group('sensors')
         self.state_group = self.h5file.create_group('state')
 
-    def sensor_callback(self, sensor_data, sensor_name):
+    def sensor_callback(self, sensor_data: object, sensor_name: str) -> None:
         self.sensor_queue.put((sensor_data, sensor_name))
 
-    def process_images(self, sensor_list, images):
+    def process_images(self, sensor_list: list, images: dict) -> None:
         try:
             for _ in range(len(sensor_list)):
                 data = self.sensor_queue.get(True, 1.0)
@@ -24,9 +24,9 @@ class Recorder:
                 image = self.process_img(data[0])
                 images[sensor_name].append(image)
         except Empty:
-            print("Some of the sensor information is missed")
+            print('Some of the sensor information is missed')
 
-    def process_img(self, image):
+    def process_img(self, image: object) -> np.ndarray:
         img_data = np.array(image.raw_data)
         reshaped_data = img_data.reshape((self.img_height, self.img_width, 4))[:, :, :3]
         img = Image.fromarray(reshaped_data)
@@ -34,18 +34,19 @@ class Recorder:
         img.save(buf, format='JPEG')
         byte_img = buf.getvalue()
         return np.asarray(byte_img)
-    
-    def process_transforms(self, vehicle_list, transforms):
-        for i in range(len(vehicle_list)):
+
+    def process_transforms(self, vehicle_list: list, transforms: list) -> None:
+        for i, vehicle in enumerate(vehicle_list):
             vehicle_id = f'vehicle_{i+1}'
-            transform = self.process_transform(vehicle_list[i].get_transform())
+            transform = self.process_transform(vehicle.get_transform())
             transforms[vehicle_id].append(transform)
 
-    def process_transform(self, transform):
+    def process_transform(self, transform: object) -> tuple:
         state_tuple = (transform.location.x, transform.location.y, transform.rotation.yaw)
         return state_tuple
-    
-    def create_datasets(self, transforms, images, vehicle_list, sensor_list, metadata):
+
+    def create_datasets(self, transforms: dict, images: dict, vehicle_list: list, sensor_list: list,
+                        metadata: dict) -> None:
         self.h5file.create_dataset('metadata', data=metadata)
         for i in range(len(vehicle_list)):
             vehicle_id = f'vehicle_{i+1}'
@@ -54,5 +55,5 @@ class Recorder:
             camera_id = f'camera_{i+1}'
             self.sensors_group.create_dataset(camera_id, data=images[camera_id])
 
-    def stop_recording(self):
+    def stop_recording(self) -> None:
         self.h5file.close()
