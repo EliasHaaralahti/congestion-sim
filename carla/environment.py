@@ -6,6 +6,8 @@ class CarlaEnv:
     def __init__(self, host, port, img_width, img_height, n_frames, fps):
         self.vehicle_list = []
         self.sensor_list = []
+        self.ai_controller_list = []
+        self.pedestrian_list = []
         self.images = {}
         self.transforms = {}
         self.img_width = img_width
@@ -28,6 +30,32 @@ class CarlaEnv:
         settings.fixed_delta_seconds = 1 / self.fps
         self.world.apply_settings(settings)
         self.traffic_manager.set_synchronous_mode(True)
+
+    def generate_spawn_points(self, n):
+        spawn_points = []
+        for _ in range(n):
+            spawn_points.append(self.world.get_random_location_from_navigation())
+        return spawn_points
+    
+    def spawn_pedestrians(self, spawn_point_indices):
+        walker_controller_bp = self.blueprint_library.find('controller.ai.walker')
+        spawn_points = self.generate_spawn_points(200)
+        for i in spawn_point_indices:
+            walker_bp = random.choice(self.blueprint_library.filter('walker.*'))
+            transform = carla.Transform(spawn_points[i])
+            pedestrian = self.world.try_spawn_actor(walker_bp, transform)
+            if pedestrian is None:
+                continue
+            self.pedestrian_list.append(pedestrian)
+            ai_controller = self.world.spawn_actor(walker_controller_bp, carla.Transform(), attach_to=pedestrian)
+            self.ai_controller_list.append(ai_controller)
+        self.world.tick()
+
+    def move_pedestrians(self):
+        for ai_controller in self.ai_controller_list:
+            ai_controller.start()
+            ai_controller.go_to_location(self.world.get_random_location_from_navigation())
+            ai_controller.set_max_speed(1 + random.random())
 
     def spawn_vehicle(self, vehicle_id, spawn_point_id=None):
         if spawn_point_id is None:
@@ -76,6 +104,10 @@ class CarlaEnv:
             sensor.destroy()
         for vehicle in self.vehicle_list:
             vehicle.destroy()
+        for ai_controller in self.ai_controller_list:
+            ai_controller.destroy()
+        for pedestrian in self.pedestrian_list:
+            pedestrian.destroy()
 
     def set_original_settings(self):
         self.world.apply_settings(self.original_settings)
