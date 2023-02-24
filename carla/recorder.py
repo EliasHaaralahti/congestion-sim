@@ -48,7 +48,6 @@ class Recorder:
             vehicle_id = f'vehicle_{i+1}'
             velocity = vehicle.get_velocity()
             velocity_tuple = (velocity.x, velocity.y)
-            print(velocity)
             velocities[vehicle_id].append(velocity_tuple)
 
     def create_datasets(self, transforms: dict, velocities: dict, images: dict, vehicle_list: list,

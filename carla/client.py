@@ -23,15 +23,17 @@ def main():
         vehicle_3 = env.spawn_vehicle('vehicle.audi.a2', 28)
         vehicle_4 = env.spawn_vehicle('vehicle.nissan.micra', 116)
 
-        camera_1 = env.spawn_camera(0, 0, 2, vehicle_1)
-        camera_2 = env.spawn_camera(0, 0, 2, vehicle_2)
-        camera_3 = env.spawn_camera(0, 0, 2, vehicle_3)
-        camera_4 = env.spawn_camera(0, 0, 2, vehicle_4)
+        camera_1 = env.spawn_camera(vehicle_1, (0, 0, 2))
+        camera_2 = env.spawn_camera(vehicle_2, (0, 0, 2))
+        camera_3 = env.spawn_camera(vehicle_3, (0, 0, 2))
+        camera_4 = env.spawn_camera(vehicle_4, (0, 0, 2))
+        camera_5 = env.spawn_camera(vehicle_4, (0, 0, 2), (0, 180, 0))
 
         camera_1.listen(lambda image: recorder.sensor_callback(image, 'camera_1'))
         camera_2.listen(lambda image: recorder.sensor_callback(image, 'camera_2'))
         camera_3.listen(lambda image: recorder.sensor_callback(image, 'camera_3'))
         camera_4.listen(lambda image: recorder.sensor_callback(image, 'camera_4'))
+        camera_5.listen(lambda image: recorder.sensor_callback(image, 'camera_5'))
 
         env.set_autopilot()
 
@@ -52,11 +54,11 @@ def main():
     except KeyboardInterrupt:
         print('\nCancelled by user')
     finally:
+        metadata_json = env.create_metadata()
         env.set_original_settings()
         env.clear_actors()
-        metadata_json = env.create_metadata()
         recorder.create_datasets(env.transforms, env.velocities, env.images, env.vehicle_list,
-                                 env.vehicle_list, metadata_json)
+                                 env.sensor_list, metadata_json)
         recorder.stop_recording()
 
 if __name__ == '__main__':

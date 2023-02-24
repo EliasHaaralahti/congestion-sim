@@ -1,6 +1,7 @@
 import json
 import random
 from typing import Optional
+from datetime import datetime
 import carla
 
 class CarlaEnv:
@@ -74,12 +75,14 @@ class CarlaEnv:
         self.velocities[vehicle_id] = []
         return vehicle
 
-    def create_transform(self, x_coord: int, y_coord: int, z_coord: int) -> object:
-        location = carla.Location(x_coord, y_coord, z_coord)
-        return carla.Transform(location)
+    def create_transform(self, location_tuple: tuple, rotation_tuple: tuple) -> object:
+        location = carla.Location(location_tuple[0], location_tuple[1], location_tuple[2])
+        rotation = carla.Rotation(rotation_tuple[0], rotation_tuple[1], rotation_tuple[2])
+        return carla.Transform(location, rotation)
 
-    def spawn_camera(self, x_coord: int, y_coord: int, z_coord: int, vehicle: object) -> object:
-        transform = self.create_transform(x_coord, y_coord, z_coord)
+    def spawn_camera(self, vehicle: object, location_tuple: tuple,
+                     rotation_tuple: tuple=(0, 0, 0)) -> object:
+        transform = self.create_transform(location_tuple, rotation_tuple)
         camera = self.world.spawn_actor(self.camera_bp, transform, attach_to=vehicle)
         self.sensor_list.append(camera)
         camera_id = f'camera_{len(self.sensor_list)}'
@@ -97,11 +100,34 @@ class CarlaEnv:
         self.traffic_manager.set_path(vehicle, route)
 
     def create_metadata(self) -> dict:
+        vehicles = []
+        sensors = []
+        vehicle_ids = [vehicle.id for vehicle in self.vehicle_list]
+        for i, vehicle in enumerate(self.vehicle_list):
+            vehicle_dict = {}
+            vehicle_id = f'vehicle_{i+1}'
+            vehicle_dict['id'] = vehicle_id
+            vehicle_dict['model'] = vehicle.type_id
+            vehicles.append(vehicle_dict)
+        for i, sensor in enumerate(self.sensor_list):
+            sensor_dict = {}
+            camera_id = f'camera_{i+1}'
+            index= vehicle_ids.index(sensor.parent.id)
+            parent_id = f'vehicle_{index+1}'
+            sensor_dict['id'] = camera_id
+            sensor_dict['parent_id'] = parent_id
+            sensors.append(sensor_dict)
         metadata = {
+            'timestamp': str(datetime.now()),
             'img_width': self.img_width,
             'img_height': self.img_height,
             'n_frames': self.n_frames,
-            'fps': self.fps
+            'fps': self.fps,
+            'n_vehicles': len(self.vehicle_list),
+            'n_sensors': len(self.sensor_list),
+            'n_pedestrians': len(self.pedestrian_list),
+            'vehicles': vehicles,
+            'sensors': sensors
         }
         return json.dumps(metadata)
 
