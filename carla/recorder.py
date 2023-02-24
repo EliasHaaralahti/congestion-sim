@@ -12,6 +12,7 @@ class Recorder:
         self.h5file = h5py.File(f'runs/{filename}.hdf5', 'w')
         self.sensors_group = self.h5file.create_group('sensors')
         self.state_group = self.h5file.create_group('state')
+        self.velocity_group = self.h5file.create_group('velocity')
 
     def sensor_callback(self, sensor_data: object, sensor_name: str) -> None:
         self.sensor_queue.put((sensor_data, sensor_name))
@@ -38,19 +39,25 @@ class Recorder:
     def process_transforms(self, vehicle_list: list, transforms: list) -> None:
         for i, vehicle in enumerate(vehicle_list):
             vehicle_id = f'vehicle_{i+1}'
-            transform = self.process_transform(vehicle.get_transform())
-            transforms[vehicle_id].append(transform)
+            transform = vehicle.get_transform()
+            state_tuple = (transform.location.x, transform.location.y, transform.rotation.yaw)
+            transforms[vehicle_id].append(state_tuple)
 
-    def process_transform(self, transform: object) -> tuple:
-        state_tuple = (transform.location.x, transform.location.y, transform.rotation.yaw)
-        return state_tuple
+    def process_velocities(self, vehicle_list: list, velocities: list) -> None:
+        for i, vehicle in enumerate(vehicle_list):
+            vehicle_id = f'vehicle_{i+1}'
+            velocity = vehicle.get_velocity()
+            velocity_tuple = (velocity.x, velocity.y)
+            print(velocity)
+            velocities[vehicle_id].append(velocity_tuple)
 
-    def create_datasets(self, transforms: dict, images: dict, vehicle_list: list, sensor_list: list,
-                        metadata: dict) -> None:
+    def create_datasets(self, transforms: dict, velocities: dict, images: dict, vehicle_list: list,
+                        sensor_list: list, metadata: dict) -> None:
         self.h5file.create_dataset('metadata', data=metadata)
         for i in range(len(vehicle_list)):
             vehicle_id = f'vehicle_{i+1}'
             self.state_group.create_dataset(vehicle_id, data=transforms[vehicle_id])
+            self.velocity_group.create_dataset(vehicle_id, data=velocities[vehicle_id])
         for i in range(len(sensor_list)):
             camera_id = f'camera_{i+1}'
             self.sensors_group.create_dataset(camera_id, data=images[camera_id])

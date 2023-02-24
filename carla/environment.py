@@ -12,6 +12,7 @@ class CarlaEnv:
         self.pedestrian_list = []
         self.images = {}
         self.transforms = {}
+        self.velocities = {}
         self.img_width = img_width
         self.img_height = img_height
         self.n_frames = n_frames
@@ -70,6 +71,7 @@ class CarlaEnv:
         self.vehicle_list.append(vehicle)
         vehicle_id = f'vehicle_{len(self.vehicle_list)}'
         self.transforms[vehicle_id] = []
+        self.velocities[vehicle_id] = []
         return vehicle
 
     def create_transform(self, x_coord: int, y_coord: int, z_coord: int) -> object:

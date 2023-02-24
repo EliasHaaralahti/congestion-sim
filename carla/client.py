@@ -45,6 +45,7 @@ def main():
         while curr_frame < n_frames:
             env.world.tick()
             recorder.process_transforms(env.vehicle_list, env.transforms)
+            recorder.process_velocities(env.vehicle_list, env.velocities)
             recorder.process_images(env.sensor_list, env.images)
             curr_frame += 1
 
@@ -54,8 +55,8 @@ def main():
         env.set_original_settings()
         env.clear_actors()
         metadata_json = env.create_metadata()
-        recorder.create_datasets(env.transforms, env.images, env.vehicle_list, env.vehicle_list,
-                                 metadata_json)
+        recorder.create_datasets(env.transforms, env.velocities, env.images, env.vehicle_list,
+                                 env.vehicle_list, metadata_json)
         recorder.stop_recording()
 
 if __name__ == '__main__':
