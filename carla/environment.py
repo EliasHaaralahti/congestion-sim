@@ -23,7 +23,8 @@ class CarlaEnv:
         self.original_settings = self.world.get_settings()
         self.traffic_manager = self.client.get_trafficmanager()
         self.blueprint_library = self.world.get_blueprint_library()
-        self.spawn_points = self.world.get_map().get_spawn_points()
+        self.map = self.world.get_map()
+        self.spawn_points = self.map.get_spawn_points()
         self.camera_bp = self.blueprint_library.find('sensor.camera.rgb')
         self.camera_bp.set_attribute('image_size_x', f'{self.img_width}')
         self.camera_bp.set_attribute('image_size_y', f'{self.img_height}')
@@ -99,26 +100,43 @@ class CarlaEnv:
             route.append(self.spawn_points[i].location)
         self.traffic_manager.set_path(vehicle, route)
 
-    def create_metadata(self) -> dict:
-        vehicles = []
-        sensors = []
-        vehicle_ids = [vehicle.id for vehicle in self.vehicle_list]
-        for i, vehicle in enumerate(self.vehicle_list):
+    def get_vehicle_information(self, vehicle_list: list) -> list:
+        vehicle_information = []
+        for i, vehicle in enumerate(vehicle_list):
             vehicle_dict = {}
             vehicle_id = f'vehicle_{i+1}'
             vehicle_dict['id'] = vehicle_id
             vehicle_dict['model'] = vehicle.type_id
-            vehicles.append(vehicle_dict)
-        for i, sensor in enumerate(self.sensor_list):
+            vehicle_information.append(vehicle_dict)
+        return vehicle_information
+
+    def get_sensor_information(self, sensor_list: list, vehicle_list: list) -> list:
+        sensor_information = []
+        vehicle_ids = [vehicle.id for vehicle in vehicle_list]
+        for i, sensor in enumerate(sensor_list):
             sensor_dict = {}
             camera_id = f'camera_{i+1}'
             index= vehicle_ids.index(sensor.parent.id)
             parent_id = f'vehicle_{index+1}'
             sensor_dict['id'] = camera_id
             sensor_dict['parent_id'] = parent_id
-            sensors.append(sensor_dict)
+            sensor_information.append(sensor_dict)
+        return sensor_information
+
+    def generate_waypoints(self) -> list:
+        waypoints = []
+        waypoints_list = self.map.generate_waypoints(1.0)
+        for waypoint in waypoints_list:
+            location = waypoint.transform.location
+            waypoint_tuple = (location.x, location.y)
+            waypoints.append(waypoint_tuple)
+        return waypoints
+
+    def create_metadata(self) -> dict:
         metadata = {
             'timestamp': str(datetime.now()),
+            'map': self.map.name,
+            'waypoints': self.generate_waypoints(),
             'img_width': self.img_width,
             'img_height': self.img_height,
             'n_frames': self.n_frames,
@@ -126,8 +144,8 @@ class CarlaEnv:
             'n_vehicles': len(self.vehicle_list),
             'n_sensors': len(self.sensor_list),
             'n_pedestrians': len(self.pedestrian_list),
-            'vehicles': vehicles,
-            'sensors': sensors
+            'vehicles': self.get_vehicle_information(self.vehicle_list),
+            'sensors': self.get_sensor_information(self.sensor_list, self.vehicle_list)
         }
         return json.dumps(metadata)
 
