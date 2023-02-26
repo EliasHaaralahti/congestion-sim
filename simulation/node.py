@@ -29,15 +29,15 @@ class Node():
         """
         Read data for current node at simulation tick
         """
-        print(f"Reading data for node {self.node_id}")
         agent_state = self.dataloader.read_agent_state(self.node_id, self.env.now)
         camera_image = self.dataloader.read_images(self.node_id, self.env.now)
         return agent_state, camera_image
 
-    def summarize_output(self, raw_output: object, state: AgentState) -> OutputSummary:
-        """ TODO
+    def summarize_output(
+            self, raw_output: object, im_shape, state: AgentState) -> OutputSummary:
+        """
         Convert raw model results into OutputSummary data class.
-        Only accept results with class 2 (car)
+        Only accept results with class car or person.
         """
         # Remove the .pandas() to get the data as a tensor. Might boost performance
         # Pandas offers columns xmin, ymin, xmax, ymax, confidence, class, name
@@ -47,10 +47,24 @@ class Node():
         # and exclude results for classes other than car.
         # Note, for optimization instead of using iterrows
         # alternative panda methods could possibly be used.
-        detections = []        
+        detections = [] 
         for _, row in pandas_yolo_results.iterrows():
-            if row['name'] == 'car':
+            if row['name'] == 'car' or row['name'] == 'person':
+
+                # Filter out matches where the car detects itself by not taking
+                # detections with ymax > 20% of the bottom of the image.
+                #bottom_of_image_height = im_shape[0] - (im_shape[0]/4)
+                # Get about 1/3 of image bottom size
+                ymin_max = im_shape[0] / 1.6
+                # Get about 1/6 of the bottom of the image size
+                ymax_max = im_shape[0] / 16
+
+                if row['name'] == 'car':
+                    if row['ymin'] > ymin_max and row['ymax'] > ymax_max:
+                        continue
+
                 detection = DetectionData(
+                    type=row['name'],
                     xmin=row['xmin'],
                     xmax=row['xmax'],
                     ymin=row['ymin'],
@@ -76,7 +90,7 @@ class Node():
             state, image = self.read_data()
             raw_output = self.model.forward(image)
             # Debugging / visualization
-            output = self.summarize_output(raw_output, state)
+            output = self.summarize_output(raw_output, image.shape, state)
 
             # TODO: Another temporary trick for json friendliness :)
             # TODO: Only one detection per agent/timestep stored currently!
