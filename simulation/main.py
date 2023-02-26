@@ -1,13 +1,20 @@
+import json
+import os
 import simpy
 from node import Node
 from processor import processor
 from data import DataLoader
 from model import Model
-import json
+
 
 
 def write_data(processed_data):
-    with open('results/result.json', 'w') as file:
+    folder = "results/"
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+
+    path = folder + "results.json"
+    with open(path, 'w', encoding="utf-8") as file:
         json.dump(processed_data, file)
 
 
@@ -37,7 +44,6 @@ def main():
 
     # Create nodes and add to simulation as processes
     for node_id in agent_ids:
-        #nodes.append( Node(env, node_id, dataloader, model) )
         node = Node(env, node_id, dataloader, model, data_pipe, result_storage_pipe)
         env.process( node.run() )
 
@@ -45,7 +51,7 @@ def main():
     env.process( processor(env, data_pipe, result_storage_pipe) )
 
     print("Starting simulation")
-    env.run(until=800)
+    env.run(until=dataloader.get_simulation_length())
     print("Simulation done")
     # Write processed results for visualization
     write_data(result_storage_pipe)
