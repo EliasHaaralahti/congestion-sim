@@ -7,6 +7,7 @@ class DetectionData:
     Data class for describing a bounding box detection
     produced by the model.
     """
+    type: str # Class/type of detection
     xmin: float # Width of the bounding box
     xmax: float # Height of the bounding box
     ymin: float # box x coordinate in the image
