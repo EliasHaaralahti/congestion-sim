@@ -5,22 +5,18 @@ import numpy as np
 
 
 def process_detection(data: DetectionData) -> Tuple[float]:
-    #print(f"Processing single detection: {data}")
-    x_min = data.xmin
-    x_max = data.xmax
-    y_min = data.ymin
-    y_max = data.ymax
-
-    detected_height = y_max - y_min
-    # Assume average car height is between 1.5 and 1.8 meters
-    car_average_height = 165 # in cm
-
-    # Temporary 'formula' to calculate distance between camera and object. 
-    # TODO: Implementa better solution. Possibly using carla focal length?
-    distance = car_average_height / detected_height
-    # TODO: Calculate offset of car in width direction from center of image.
-    # Then use the distance to calculate what the offset would be considering distance
-    width_offset = 0 # Temporarily assume car directly in front
+    focal_length = 50
+    height_in_frame = data.ymax - data.ymin
+    real_height = 0
+    if data.type == "car":
+        real_height = 1500
+    elif data.type == "person":
+        real_height = 1700
+    
+    # (mm * mm) / px. Distance is in cm!
+    distance = (real_height * focal_length) / height_in_frame
+    distance = distance / 100 # cm to m. In Carla one coordinate unit = 1m
+    width_offset = 0
     return DetectedAgentState(distance, width_offset)
 
 
