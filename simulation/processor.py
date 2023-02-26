@@ -1,11 +1,29 @@
+import math
 from typing import List, Tuple
 from data_models.output_summary import OutputSummary, DetectionData
 from data_models.agent_state import DetectedAgentState
 import numpy as np
 
 
+def check_if_crashing(
+        agent: OutputSummary, target: Tuple[int, int]) -> bool:
+    """ TODO
+    Function for checking if the agent is about to crash with other other 
+    agents or detected. Or just detected?
+    """
+    # Basic logic for now: If agent detected, is close enough and velocity > 0
+    # -> crashing.
+
+    agent_position = (agent.agent_x, agent.agent_y)
+    distance = math.dist(agent_position, target) # meters
+
+    crashing = False
+    if distance < 2:
+        crashing = True
+    return crashing
+
 def process_detection(data: DetectionData) -> Tuple[float]:
-    focal_length = 50
+    focal_length = 30
     height_in_frame = data.ymax - data.ymin
     real_height = 0
     if data.type == "car":
@@ -17,19 +35,17 @@ def process_detection(data: DetectionData) -> Tuple[float]:
     distance = (real_height * focal_length) / height_in_frame
     distance = distance / 100 # cm to m. In Carla one coordinate unit = 1m
     width_offset = 0
-    return DetectedAgentState(distance, width_offset)
+    return DetectedAgentState(data.id, distance, width_offset)
 
 
 def process_agent_data(data: OutputSummary) -> dict:
-    #print(f"Agent {data.node_id} data {data}")
     detections: List[DetectionData] = data.detections
 
-    # Process detections into new 'agents'
+    # Process detections
     processed_detections = []
     for detection in detections:
         result = process_detection(detection)
         processed_detections.append(result)
-
     return processed_detections
 
 
@@ -48,37 +64,40 @@ def process(detections: dict, data_pipe: dict, result_storage_pipe: list):
     # which is array of arrays [[x,y]]
     processed_agents = {}
     for agent in detections:
-        agentState: OutputSummary = data_pipe[agent]
-        node_x = agentState.agent_x
-        node_y = agentState.agent_y
-        node_direction = agentState.direction
+        state: OutputSummary = data_pipe[agent]
+        node_direction = state.direction
         processed_agents[agent] = {
-            'x': node_x,
-            'y': node_y,
+            'x': state.agent_x,
+            'y': state.agent_y,
             'direction': node_direction,
+            'velocity': state.velocity,
             'detected': []
         }
 
         for detection in detections[agent]:
-
-            detected_agent_distance = detection.distance
-            detected_agent_offset = detection.offset
+            #detected_agent_offset = detection.offset
 
             # Calculate new agent position based on distance and width offset.
             # TODO: width offset not implemented. Distance not used
             # CARLA seems to handle direction according to unit circle.
             # Therefore x=cos(angle), y=sin(angle)
-            target_x = node_x + (detected_agent_distance * np.cos(np.deg2rad(node_direction)))
-            target_y = node_y + (detected_agent_distance * np.sin(np.deg2rad(node_direction)))
+            target_x = state.agent_x + (detection.distance *
+                                        np.cos(np.deg2rad(node_direction)))
+            target_y = state.agent_y + (detection.distance *
+                                        np.sin(np.deg2rad(node_direction)))
     
-            processed_agents[agent]['detected'].append( [target_x, target_y] )
+            crashing = check_if_crashing(state, (target_x, target_y))
+            target = [target_x, target_y, crashing, detection.id, detection.distance]
+            processed_agents[agent]['detected'].append( target )
 
     result_storage_pipe['processing_results'].append(processed_agents)
 
 
 def processor(env, data_pipe: dict, result_storage_pipe: list):
-    # Dictionary to hold new detected 'agents' for each actual node.
-    # Dictionary key corresponds to node that detected the agent.
+    """
+    Dictionary to hold new detected 'agents' for each actual node.
+    Dictionary key corresponds to node that detected the agent.
+    """
     detected_agents = {}
     while True:
         for agent in data_pipe:

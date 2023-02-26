@@ -47,8 +47,8 @@ class Node():
         # and exclude results for classes other than car.
         # Note, for optimization instead of using iterrows
         # alternative panda methods could possibly be used.
-        detections = [] 
-        for _, row in pandas_yolo_results.iterrows():
+        detections = []
+        for i, row in pandas_yolo_results.iterrows():
             if row['name'] == 'car' or row['name'] == 'person':
 
                 # Filter out matches where the car detects itself by not taking
@@ -64,6 +64,7 @@ class Node():
                         continue
 
                 detection = DetectionData(
+                    id=f"{i}-{self.node_id}",
                     type=row['name'],
                     xmin=row['xmin'],
                     xmax=row['xmax'],
@@ -77,6 +78,7 @@ class Node():
             agent_x=state.x,
             agent_y=state.y,
             direction=state.direction,
+            velocity=state.velocity,
             detections=detections
         )
         return output
@@ -98,6 +100,8 @@ class Node():
             if len(output.detections) > 0:
                 for detection in output.detections:
                     json_friendly = (
+                        detection.id,
+                        detection.type,
                         detection.xmin,
                         detection.xmax,
                         detection.ymin,

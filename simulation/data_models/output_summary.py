@@ -7,6 +7,7 @@ class DetectionData:
     Data class for describing a bounding box detection
     produced by the model.
     """
+    id: str # Identifies separate detectors at a single timestep.
     type: str # Class/type of detection
     xmin: float # Width of the bounding box
     xmax: float # Height of the bounding box
@@ -17,11 +18,11 @@ class DetectionData:
 @dataclass
 class OutputSummary:
     """
-    Data class describing the node specific output of the yolo
-    model in a more summarized way for final processing.
+    Data class for describing data sent by nodes to the processor
     """
     node_id: str
     agent_x: float # X position of agent in the world
     agent_y: float # Y position of agent in the world
-    direction: float # TODO: Is this direction needed if AgentState also has direction?
+    direction: float
+    velocity: float
     detections: list[DetectionData] # Cars detected by yolo

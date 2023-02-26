@@ -4,6 +4,7 @@ via the h5py library.
 """
 import io
 import ast
+import math
 from typing import List, Tuple
 import h5py
 from numpy import ndarray, asarray
@@ -58,15 +59,17 @@ class DataLoader():
         """
         agent_vehicle = agent.replace('camera_', 'vehicle_')
         data = self.h5file.get(f'state/{agent_vehicle}')[simulation_step]
-        return AgentState(x=data[0], y=data[1], direction=data[2])
+        vel_x, vel_y = self.h5file.get(f'velocity/{agent_vehicle}')[simulation_step]
+        velocity = math.hypot(vel_x, vel_y)
+        return AgentState(x=data[0], y=data[1], direction=data[2], velocity=velocity)
 
     def __del__(self):
         self.h5file.close()
 
-       
+
 # Main for testing the class.
 if __name__ == "__main__":
-    print("Running dataloader as main")
+    print("Running dataloader as main for testing")
     dataloader = DataLoader()
 
     sim_length = dataloader.get_simulation_length()
@@ -80,5 +83,10 @@ if __name__ == "__main__":
     
     agent_test = agents[0]
     SIMULATION_STEP = 0
+
+    state = dataloader.read_agent_state(agent_test, SIMULATION_STEP)
+    print(f"Agent state: {state}")
+
+
     image = dataloader.read_images(agent_test, SIMULATION_STEP)
     print(f"Image shape: {image.shape}")
