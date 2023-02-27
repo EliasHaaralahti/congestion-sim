@@ -19,4 +19,4 @@ class DetectedAgentState:
     """
     id: str
     distance: float
-    offset: float # Width offset
+    width_offset: float # Width offset

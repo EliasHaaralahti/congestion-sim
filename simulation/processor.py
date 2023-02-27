@@ -25,6 +25,10 @@ def check_if_crashing(
 def process_detection(data: DetectionData) -> Tuple[float]:
     focal_length = 30
     height_in_frame = data.ymax - data.ymin
+    # TEMPORARY: Whole picture is 640x640. Get this data from somewhere.
+    image_width = 640
+    box_width_center = data.xmin + ((data.xmax - data.xmin) / 2)
+    fov_angle = 90 # Camera fov should be 90.
     real_height = 0
     if data.type == "car":
         real_height = 1500
@@ -34,7 +38,7 @@ def process_detection(data: DetectionData) -> Tuple[float]:
     # (mm * mm) / px. Distance is in cm!
     distance = (real_height * focal_length) / height_in_frame
     distance = distance / 100 # cm to m. In Carla one coordinate unit = 1m
-    width_offset = 0
+    width_offset = (box_width_center/image_width * fov_angle) - (fov_angle / 2)
     return DetectedAgentState(data.id, distance, width_offset)
 
 
@@ -81,10 +85,12 @@ def process(detections: dict, data_pipe: dict, result_storage_pipe: list):
             # TODO: width offset not implemented. Distance not used
             # CARLA seems to handle direction according to unit circle.
             # Therefore x=cos(angle), y=sin(angle)
+            target_angle = node_direction + detection.width_offset
+            #print(f"Node direction: {node_direction}, target angle: {detection.width_offset}")
             target_x = state.agent_x + (detection.distance *
-                                        np.cos(np.deg2rad(node_direction)))
+                                        np.cos(np.deg2rad(target_angle)))
             target_y = state.agent_y + (detection.distance *
-                                        np.sin(np.deg2rad(node_direction)))
+                                        np.sin(np.deg2rad(target_angle)))
     
             crashing = check_if_crashing(state, (target_x, target_y))
             target = [target_x, target_y, crashing, detection.id, detection.distance]

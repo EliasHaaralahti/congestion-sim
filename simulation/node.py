@@ -1,11 +1,9 @@
+from typing import Tuple
 from model import Model
 from data_models.output_summary import OutputSummary, DetectionData
 from data_models.agent_state import AgentState
 from data import DataLoader
-from typing import Tuple
 from numpy import ndarray
-
-import time
 
 
 class Node():
@@ -14,7 +12,6 @@ class Node():
     Each node has the responsibility of processing the data of a single agent.
     The processed data will be then delivered to an external processing entity.
     """
-    # Initialize with sympy environment
     def __init__(self, env: object, node_id: str, dataloader: DataLoader,
                 model: Model, data_pipe: dict, result_storage_pipe: dict):
         self.env: object = env
@@ -33,8 +30,8 @@ class Node():
         camera_image = self.dataloader.read_images(self.node_id, self.env.now)
         return agent_state, camera_image
 
-    def summarize_output(
-            self, raw_output: object, im_shape, state: AgentState) -> OutputSummary:
+    def summarize_output(self, raw_output: object, 
+                         im_shape, state: AgentState) -> OutputSummary:
         """
         Convert raw model results into OutputSummary data class.
         Only accept results with class car or person.
