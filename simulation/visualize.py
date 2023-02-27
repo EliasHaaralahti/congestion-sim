@@ -8,6 +8,29 @@ from matplotlib.markers import MarkerStyle
 from data import DataLoader
 
 
+def calculate_angle_y_flip(rotation: float) -> float:
+    """
+    Flipping Matplotlib y-axis is required due to CARLA handling it differently.
+    Need to also flip markers with orientation, but only on y axis direction.
+    This returns the matching angle, but x axis direction remains untouched.
+    Angles are considered similar to the unit circle, where 0 degrees = right.
+    """
+
+    # Convert any angle to range 0-360
+    angle = rotation % 360
+
+    if 0 <= angle < 90:
+        return angle - (angle * 2)
+    elif 90 <= angle <= 180:
+        return angle + ((180 - angle) * 2)
+    elif 180 < angle <= 270:
+        return angle - ((angle - 180) * 2)
+    elif 270 < angle <= 360:
+        return angle + ((360 - angle) * 2)
+    else:
+        return -1
+
+
 def get_relevant_coordinates(agents: List[str], step: int, processed: object):
     """
     Find min and max values for both x and y coordinates for each agent
@@ -48,6 +71,8 @@ while timestep <= max_timesteps:
     min_x, max_x, min_y, max_y = get_relevant_coordinates(
         agents, timestep, data['processing_results'])
 
+    # Flip x and y axes
+
     #print(f"Result: minx: {min_x}, maxx: {max_x}, miny: {min_y}, maxy: {max_y}")
     # Full size window for displaying map
     axes[1,0].scatter(x_waypoints, y_waypoints, c='k', s=0.05, zorder=0)
@@ -57,7 +82,6 @@ while timestep <= max_timesteps:
     axes[1,1].scatter(x_waypoints, y_waypoints, c='k', s=0.1, zorder=0)
     axes[1,1].set_xlim([min_x-40, max_x+40])
     axes[1,1].set_ylim([min_y-40, max_y+40])
-
 
     for i, agent in enumerate(agents):
         agent_data = data['processing_results'][timestep][agent]
@@ -69,7 +93,7 @@ while timestep <= max_timesteps:
 
         velocity = agent_data['velocity']
         axes[0, i].set_title(
-            f"Agent ID: {agent}, Color: {colors[i]}, Velocity: {velocity:.1f}km/h")
+            f"Agent ID: {agent}, Color: {colors[i]}, Velocity: {velocity:.1f}m/s")
         axes[0, i].imshow(image)
 
         for bounds in yolo_bounds:
@@ -106,10 +130,11 @@ while timestep <= max_timesteps:
                     path_effects=[pe.withStroke(linewidth=2, foreground="black")])
 
         # Rotation difference between CARLA (unit circle -> right = angle 0)
-        # Matplotlib 0 angle = up. -90 to compensate.
-        rotation = agent_data['direction'] - 90
+        # Matplotlib 0 angle = up. -90 to compensate. Additionally since the
+        # y-axis is flipped, need to account for that too with calculate_angle_y_flip.
+        rotation_adjusted = calculate_angle_y_flip(agent_data['direction']) - 90
         m = MarkerStyle(6)
-        m._transform.rotate_deg(rotation)
+        m._transform.rotate_deg(rotation_adjusted)
 
         # Draw full sized version of map
         axes[1,0].scatter(
@@ -124,6 +149,10 @@ while timestep <= max_timesteps:
             color = "red" if crashing_det else "black"
             axes[1,0].scatter(x_det, y_det, c=colors[i], edgecolors=color)
             axes[1,1].scatter(x_det, y_det, c=colors[i], edgecolors=color)
+
+    # Rotate Y axis since CARLA Y axis is "upside down".
+    axes[1,0].set_ylim(axes[1,0].get_ylim()[::-1])
+    axes[1,1].set_ylim(axes[1,1].get_ylim()[::-1])
     
     mng = plt.get_current_fig_manager()
     mng.full_screen_toggle()
