@@ -14,6 +14,9 @@ class CarlaEnv:
         self.images = {}
         self.transforms = {}
         self.velocities = {}
+        self.travelled_frames = {}
+        self.destination_indices = {}
+        self.reached_destination = {}
         self.img_width = img_width
         self.img_height = img_height
         self.n_frames = n_frames
@@ -74,6 +77,8 @@ class CarlaEnv:
         vehicle_id = f'vehicle_{len(self.vehicle_list)}'
         self.transforms[vehicle_id] = []
         self.velocities[vehicle_id] = []
+        self.travelled_frames[vehicle_id] = 0
+        self.reached_destination[vehicle_id] = False
         return vehicle
 
     def create_transform(self, location_tuple: tuple, rotation_tuple: tuple) -> object:
@@ -95,18 +100,44 @@ class CarlaEnv:
             vehicle.set_autopilot(True)
 
     def set_route(self, vehicle: object, route_indices: list) -> None:
+        vehicle_id = f'vehicle_{self.vehicle_list.index(vehicle)+1}'
+        self.destination_indices[vehicle_id] = route_indices[-1]
         route = []
         for i in route_indices:
             route.append(self.spawn_points[i].location)
         self.traffic_manager.set_path(vehicle, route)
 
+    def increment_travelled_frames(self) -> None:
+        for i, vehicle in enumerate(self.vehicle_list):
+            vehicle_id = f'vehicle_{i+1}'
+            if vehicle_id not in self.destination_indices:
+                continue
+            destination_index = self.destination_indices[vehicle_id]
+            destination = self.spawn_points[destination_index].location
+            destination_x = round(destination.x)
+            destination_y = round(destination.y)
+            vehicle_x = round(vehicle.get_location().x)
+            vehicle_y = round(vehicle.get_location().y)
+            if vehicle_x == destination_x and vehicle_y == destination_y:
+                self.reached_destination[vehicle_id] = True
+            if not self.reached_destination[vehicle_id]:
+                self.travelled_frames[vehicle_id] += 1
+
+    def calculate_travel_times(self) -> dict:
+        travel_times = {}
+        for vehicle_id, travelled_frames in self.travelled_frames.items():
+            travel_times[vehicle_id] = travelled_frames / self.fps
+        return travel_times
+
     def get_vehicle_information(self, vehicle_list: list) -> list:
         vehicle_information = []
+        travel_times = self.calculate_travel_times()
         for i, vehicle in enumerate(vehicle_list):
             vehicle_dict = {}
             vehicle_id = f'vehicle_{i+1}'
             vehicle_dict['id'] = vehicle_id
             vehicle_dict['model'] = vehicle.type_id
+            vehicle_dict['travel_time'] = travel_times[vehicle_id]
             vehicle_information.append(vehicle_dict)
         return vehicle_information
 
