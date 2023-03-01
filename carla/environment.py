@@ -17,6 +17,7 @@ class CarlaEnv:
         self.travelled_frames = {}
         self.destination_indices = {}
         self.reached_destination = {}
+        self.vehicle_dimensions = {}
         self.img_width = img_width
         self.img_height = img_height
         self.n_frames = n_frames
@@ -66,6 +67,11 @@ class CarlaEnv:
             ai_controller.go_to_location(self.world.get_random_location_from_navigation())
             ai_controller.set_max_speed(1 + random.random())
 
+    def process_dimensions(self, bounding_box: object) -> tuple:
+        dimensions = (bounding_box.extent.x * 2, bounding_box.extent.y * 2,
+                      bounding_box.extent.z * 2)
+        return dimensions
+
     def spawn_vehicle(self, vehicle_id: int, spawn_point_id: Optional[int]=None) -> object:
         if spawn_point_id is None:
             spawn_point = random.choice(self.spawn_points)
@@ -77,6 +83,7 @@ class CarlaEnv:
         vehicle_id = f'vehicle_{len(self.vehicle_list)}'
         self.transforms[vehicle_id] = []
         self.velocities[vehicle_id] = []
+        self.vehicle_dimensions[vehicle_id] = self.process_dimensions(vehicle.bounding_box)
         self.travelled_frames[vehicle_id] = 0
         self.reached_destination[vehicle_id] = False
         return vehicle
@@ -137,6 +144,9 @@ class CarlaEnv:
             vehicle_id = f'vehicle_{i+1}'
             vehicle_dict['id'] = vehicle_id
             vehicle_dict['model'] = vehicle.type_id
+            vehicle_dict['width'] = self.vehicle_dimensions[vehicle_id][1]
+            vehicle_dict['length'] = self.vehicle_dimensions[vehicle_id][0]
+            vehicle_dict['height'] = self.vehicle_dimensions[vehicle_id][2]
             vehicle_dict['travel_time'] = travel_times[vehicle_id]
             vehicle_information.append(vehicle_dict)
         return vehicle_information
