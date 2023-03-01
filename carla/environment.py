@@ -18,6 +18,7 @@ class CarlaEnv:
         self.destination_indices = {}
         self.reached_destination = {}
         self.vehicle_dimensions = {}
+        self.pedestrian_dimensions = {}
         self.img_width = img_width
         self.img_height = img_height
         self.n_frames = n_frames
@@ -56,6 +57,9 @@ class CarlaEnv:
             if pedestrian is None:
                 continue
             self.pedestrian_list.append(pedestrian)
+            pedestrian_id = f'pedestrian_{len(self.pedestrian_list)}'
+            self.pedestrian_dimensions[pedestrian_id] = self.process_dimensions(
+                pedestrian.bounding_box)
             ai_controller = self.world.spawn_actor(walker_controller_bp, carla.Transform(),
                                                    attach_to=pedestrian)
             self.ai_controller_list.append(ai_controller)
@@ -136,10 +140,10 @@ class CarlaEnv:
             travel_times[vehicle_id] = travelled_frames / self.fps
         return travel_times
 
-    def get_vehicle_information(self, vehicle_list: list) -> list:
+    def get_vehicle_information(self) -> list:
         vehicle_information = []
         travel_times = self.calculate_travel_times()
-        for i, vehicle in enumerate(vehicle_list):
+        for i, vehicle in enumerate(self.vehicle_list):
             vehicle_dict = {}
             vehicle_id = f'vehicle_{i+1}'
             vehicle_dict['id'] = vehicle_id
@@ -151,10 +155,10 @@ class CarlaEnv:
             vehicle_information.append(vehicle_dict)
         return vehicle_information
 
-    def get_sensor_information(self, sensor_list: list, vehicle_list: list) -> list:
+    def get_sensor_information(self) -> list:
         sensor_information = []
-        vehicle_ids = [vehicle.id for vehicle in vehicle_list]
-        for i, sensor in enumerate(sensor_list):
+        vehicle_ids = [vehicle.id for vehicle in self.vehicle_list]
+        for i, sensor in enumerate(self.sensor_list):
             sensor_dict = {}
             camera_id = f'camera_{i+1}'
             index= vehicle_ids.index(sensor.parent.id)
@@ -163,6 +167,18 @@ class CarlaEnv:
             sensor_dict['parent_id'] = parent_id
             sensor_information.append(sensor_dict)
         return sensor_information
+
+    def get_pedestrian_information(self) -> list:
+        pedestrian_information = []
+        for i in range(len(self.pedestrian_list)):
+            pedestrian_dict = {}
+            pedestrian_id = f'pedestrian_{i+1}'
+            pedestrian_dict['id'] = pedestrian_id
+            pedestrian_dict['width'] = self.pedestrian_dimensions[pedestrian_id][1]
+            pedestrian_dict['length'] = self.pedestrian_dimensions[pedestrian_id][0]
+            pedestrian_dict['height'] = self.pedestrian_dimensions[pedestrian_id][2]
+            pedestrian_information.append(pedestrian_dict)
+        return pedestrian_information
 
     def generate_waypoints(self) -> list:
         waypoints = []
@@ -185,8 +201,9 @@ class CarlaEnv:
             'n_vehicles': len(self.vehicle_list),
             'n_sensors': len(self.sensor_list),
             'n_pedestrians': len(self.pedestrian_list),
-            'vehicles': self.get_vehicle_information(self.vehicle_list),
-            'sensors': self.get_sensor_information(self.sensor_list, self.vehicle_list)
+            'vehicles': self.get_vehicle_information(),
+            'sensors': self.get_sensor_information(),
+            'pedestrians': self.get_pedestrian_information()
         }
         return json.dumps(metadata)
 
