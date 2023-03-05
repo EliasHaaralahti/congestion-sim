@@ -41,6 +41,26 @@ class DataLoader():
         # BGR -> RGB
         return img_data[:,:,::-1]
     
+    def get_metadata_summary(self):
+        """
+        Summary for visualization of scene metadata
+        """
+        data = self.h5file.get("metadata", 'r')
+        # .value is old syntax. [()] does same now.
+        data = data[()].decode("UTF-8")
+        # Convert bytes to a dictionary
+        data = ast.literal_eval(data)        
+        metadata_summary = {
+            "timestamp": data['timestamp'],
+            "map_name": data['map'],
+            "n_frames": data['n_frames'],
+            "fps": data['fps'],
+            "n_vehicles": data['n_vehicles'],
+            "n_sensors": data['n_sensors'],
+        }
+        return metadata_summary
+
+    
     def get_map(self) -> List[Tuple[int, int]]:
         """
         Returns all map markers for visualization purposes.
@@ -90,3 +110,6 @@ if __name__ == "__main__":
 
     image = dataloader.read_images(agent_test, SIMULATION_STEP)
     print(f"Image shape: {image.shape}")
+
+    metadata = dataloader.get_metadata_summary()
+    print(f"Metadata: {metadata}")
