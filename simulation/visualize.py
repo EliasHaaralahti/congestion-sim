@@ -15,10 +15,8 @@ def calculate_angle_y_flip(rotation: float) -> float:
     This returns the matching angle, but x axis direction remains untouched.
     Angles are considered similar to the unit circle, where 0 degrees = right.
     """
-
     # Convert any angle to range 0-360
     angle = rotation % 360
-
     if 0 <= angle < 90:
         return angle - (angle * 2)
     elif 90 <= angle <= 180:
@@ -54,6 +52,7 @@ with open(path) as json_file:
     data = json.load(json_file)
 
 dataloader = DataLoader()
+metadata_summary = dataloader.get_metadata_summary()
 agents = dataloader.read_agent_ids()
 x_waypoints, y_waypoints = zip(*dataloader.get_map()) # List of (x,y).
 x_waypoint_min, x_waypoint_max = min(x_waypoints), max(x_waypoints)
@@ -71,17 +70,19 @@ while timestep <= max_timesteps:
     min_x, max_x, min_y, max_y = get_relevant_coordinates(
         agents, timestep, data['processing_results'])
 
-    # Flip x and y axes
-
-    #print(f"Result: minx: {min_x}, maxx: {max_x}, miny: {min_y}, maxy: {max_y}")
-    # Full size window for displaying map
-    axes[1,0].scatter(x_waypoints, y_waypoints, c='k', s=0.05, zorder=0)
-    axes[1,0].set_xlim([x_waypoint_min-10, x_waypoint_max+10])
-    axes[1,0].set_ylim([y_waypoint_min+10, y_waypoint_max+50])
+    # Show metadata information in this window.
+    axes[1, 0].set_title("Scene information")
+    for i, field in enumerate(metadata_summary):
+        y_position = 1 - 0.1 - (i * 0.1)
+        field_upp = field[0].upper() + field[1:]
+        text = f"{field_upp}: {metadata_summary[field]}"
+        axes[1, 0].text(0.01, y_position, text, size=15, color='black')
+    
     # Zoomed window for displaying map
-    axes[1,1].scatter(x_waypoints, y_waypoints, c='k', s=0.1, zorder=0)
-    axes[1,1].set_xlim([min_x-40, max_x+40])
-    axes[1,1].set_ylim([min_y-40, max_y+40])
+    axes[1, 1].set_title("2D scene map")
+    axes[1, 1].scatter(x_waypoints, y_waypoints, c='k', s=0.1, zorder=0)
+    axes[1, 1].set_xlim([min_x-60, max_x+60])
+    axes[1, 1].set_ylim([min_y-60, max_y+60])
 
     for i, agent in enumerate(agents):
         agent_data = data['processing_results'][timestep][agent]
@@ -115,18 +116,16 @@ while timestep <= max_timesteps:
                 axes[0, i].add_patch(rect)
 
                 # Find distance to current agent using bounds id and detection id
-                matching_detection = [ 
+                matching_detection = [
                     i for i in agent_data['detected'] if i[3]==id
                     ][0]
                 
                 text = f"C: {type}, D: {matching_detection[4]:.1f}m"
-                
                 # if crashing
                 if matching_detection[2]: 
                     text += " - PROXIMITY WARNING"
-
-                txt = axes[0, i].text(
-                    x_min, y_min-10, text, size=13, color='red',
+                axes[0, i].text(
+                    x_min, y_min-10, text, size=13, color='white',
                     path_effects=[pe.withStroke(linewidth=2, foreground="black")])
 
         # Rotation difference between CARLA (unit circle -> right = angle 0)
@@ -136,10 +135,6 @@ while timestep <= max_timesteps:
         m = MarkerStyle(6)
         m._transform.rotate_deg(rotation_adjusted)
 
-        # Draw full sized version of map
-        axes[1,0].scatter(
-            agent_data['x'], agent_data['y'], c=colors[i], marker=m, s=100)
-
         # Draw scaled version of map
         axes[1,1].scatter(
             agent_data['x'], agent_data['y'], c=colors[i], marker=m, s=50)
@@ -147,11 +142,9 @@ while timestep <= max_timesteps:
         for detection in agent_data['detected']:
             x_det, y_det, crashing_det, id, distance = detection
             color = "red" if crashing_det else "black"
-            axes[1,0].scatter(x_det, y_det, c=colors[i], edgecolors=color)
             axes[1,1].scatter(x_det, y_det, c=colors[i], edgecolors=color)
 
     # Rotate Y axis since CARLA Y axis is "upside down".
-    axes[1,0].set_ylim(axes[1,0].get_ylim()[::-1])
     axes[1,1].set_ylim(axes[1,1].get_ylim()[::-1])
     
     mng = plt.get_current_fig_manager()
