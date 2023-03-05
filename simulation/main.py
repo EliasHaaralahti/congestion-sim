@@ -1,5 +1,6 @@
 import json
 import os
+import time
 import simpy
 from node import Node
 from processor import processor
@@ -30,6 +31,7 @@ def main():
     dataloader = DataLoader()
     model = Model()
 
+    sim_length = dataloader.get_simulation_length()
     agent_ids = dataloader.read_agent_ids()
     # Use a dictionary entry for all agents and the value will be the latest output.
     # This will be a temporary communication pipe
@@ -50,9 +52,14 @@ def main():
     # Create the 'central processor' process.
     env.process( processor(env, data_pipe, result_storage_pipe) )
 
-    print("Starting simulation")
-    env.run(until=dataloader.get_simulation_length())
-    print("Simulation done")
+    print(f"\n\nStarting simulation with {sim_length} timesteps")
+    start_time = time.time()
+    env.run(until=sim_length)
+    final_time = time.time() - start_time
+    loop_time = final_time / sim_length
+    
+    print(f"Simulation done in {final_time:.1f} seconds.")
+    print(f"Simulation for each timestep took approximitely {loop_time:.3f} seconds.")
     # Write processed results for visualization
     write_data(result_storage_pipe)
 
