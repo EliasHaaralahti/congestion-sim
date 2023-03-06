@@ -25,7 +25,7 @@ class DataLoader():
         that occur in the current scene.
         """
         return list(self.h5file['sensors'].keys())
-    
+
     def get_simulation_length(self) -> int:
         data = self.h5file.get("sensors/", 'r')
         return len(data[list(data)[0]])
@@ -40,7 +40,7 @@ class DataLoader():
         img_data = asarray(img)
         # BGR -> RGB
         return img_data[:,:,::-1]
-    
+
     def get_metadata_summary(self):
         """
         Summary for visualization of scene metadata
