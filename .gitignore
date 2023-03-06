@@ -3,6 +3,8 @@
 *.h5
 *.hdf5
 results/
+figures/
+*.mp4
 
 ##### Below is default github python gitignore template
 
