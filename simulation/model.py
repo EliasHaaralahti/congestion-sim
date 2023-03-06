@@ -13,7 +13,7 @@ import torch
 class Model:
     def __init__(self):
         self.model = torch.hub.load(
-            'ultralytics/yolov5', 'yolov5s', pretrained=True)
+            'ultralytics/yolov5', 'yolov5x', pretrained=True)
 
     def forward(self, image: np.ndarray) -> object:
         return self.model(image)
