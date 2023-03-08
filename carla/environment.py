@@ -97,8 +97,8 @@ class CarlaEnv:
         rotation = carla.Rotation(rotation_tuple[0], rotation_tuple[1], rotation_tuple[2])
         return carla.Transform(location, rotation)
 
-    def spawn_camera(self, vehicle: object, location_tuple: tuple,
-                     rotation_tuple: tuple=(0, 0, 0)) -> object:
+    def spawn_camera(self, location_tuple: tuple, rotation_tuple: tuple=(0, 0, 0),
+                     vehicle: Optional[object]=None) -> object:
         transform = self.create_transform(location_tuple, rotation_tuple)
         camera = self.world.spawn_actor(self.camera_bp, transform, attach_to=vehicle)
         self.sensor_list.append(camera)
@@ -161,10 +161,13 @@ class CarlaEnv:
         for i, sensor in enumerate(self.sensor_list):
             sensor_dict = {}
             camera_id = f'camera_{i+1}'
-            index= vehicle_ids.index(sensor.parent.id)
-            parent_id = f'vehicle_{index+1}'
             sensor_dict['id'] = camera_id
-            sensor_dict['parent_id'] = parent_id
+            if sensor.parent is None:
+                sensor_dict['parent_id'] = None
+            else:
+                index = vehicle_ids.index(sensor.parent.id)
+                parent_id = f'vehicle_{index+1}'
+                sensor_dict['parent_id'] = parent_id
             sensor_information.append(sensor_dict)
         return sensor_information
 

@@ -23,11 +23,11 @@ def main():
         vehicle_3 = env.spawn_vehicle('vehicle.audi.a2', 28)
         vehicle_4 = env.spawn_vehicle('vehicle.nissan.micra', 116)
 
-        camera_1 = env.spawn_camera(vehicle_1, (0, 0, 2))
-        camera_2 = env.spawn_camera(vehicle_2, (0, 0, 2))
-        camera_3 = env.spawn_camera(vehicle_3, (0, 0, 2))
-        camera_4 = env.spawn_camera(vehicle_4, (0, 0, 2))
-        camera_5 = env.spawn_camera(vehicle_4, (0, 0, 2), (0, 180, 0))
+        camera_1 = env.spawn_camera((0, 0, 2), vehicle=vehicle_1)
+        camera_2 = env.spawn_camera((0, 0, 2), vehicle=vehicle_2)
+        camera_3 = env.spawn_camera((0, 0, 2), vehicle=vehicle_3)
+        camera_4 = env.spawn_camera((0, 0, 2), vehicle=vehicle_4)
+        camera_5 = env.spawn_camera((0, 0, 2), (0, 180, 0), vehicle=vehicle_4)
 
         camera_1.listen(lambda image: recorder.sensor_callback(image, 'camera_1'))
         camera_2.listen(lambda image: recorder.sensor_callback(image, 'camera_2'))
