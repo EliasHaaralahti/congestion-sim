@@ -49,7 +49,7 @@ class CarlaEnv:
 
     def spawn_pedestrians(self, spawn_point_indices: list) -> None:
         walker_controller_bp = self.blueprint_library.find('controller.ai.walker')
-        spawn_points = self.generate_spawn_points(200)
+        spawn_points = self.generate_spawn_points(300)
         for i in spawn_point_indices:
             walker_bp = random.choice(self.blueprint_library.filter('walker.*'))
             transform = carla.Transform(spawn_points[i])
@@ -142,7 +142,6 @@ class CarlaEnv:
 
     def get_vehicle_information(self) -> list:
         vehicle_information = []
-        travel_times = self.calculate_travel_times()
         for i, vehicle in enumerate(self.vehicle_list):
             vehicle_dict = {}
             vehicle_id = f'vehicle_{i+1}'
@@ -151,7 +150,6 @@ class CarlaEnv:
             vehicle_dict['width'] = self.vehicle_dimensions[vehicle_id][1]
             vehicle_dict['length'] = self.vehicle_dimensions[vehicle_id][0]
             vehicle_dict['height'] = self.vehicle_dimensions[vehicle_id][2]
-            vehicle_dict['travel_time'] = travel_times[vehicle_id]
             vehicle_information.append(vehicle_dict)
         return vehicle_information
 
@@ -206,7 +204,6 @@ class CarlaEnv:
             'n_pedestrians': len(self.pedestrian_list),
             'vehicles': self.get_vehicle_information(),
             'sensors': self.get_sensor_information(),
-            'pedestrians': self.get_pedestrian_information()
         }
         return json.dumps(metadata)
 

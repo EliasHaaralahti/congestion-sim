@@ -1,7 +1,6 @@
 ##### Custom ignores
 *.pt
 *.h5
-*.hdf5
 results/
 figures/
 *.mp4
