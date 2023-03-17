@@ -16,6 +16,8 @@ def main():
 
         env.set_sync_mode()
 
+        env.add_intersection(-47, 21)
+
         env.spawn_pedestrians(spawn_point_indices=[1, 71, 48, 181, 172, 188, 24, 9, 81, 14])
         env.move_pedestrians()
 
@@ -50,6 +52,7 @@ def main():
         camera_13 = env.spawn_camera((0, 0, 2), vehicle=vehicle_13)
         camera_14 = env.spawn_camera((0, 0, 2), vehicle=vehicle_14)
         camera_15 = env.spawn_camera((0, 0, 2), vehicle=vehicle_15)
+        camera_16 = env.spawn_camera((-62, 3, 20), (-37, 45, 0))
 
         camera_1.listen(lambda image: recorder.sensor_callback(image, 'camera_1'))
         camera_2.listen(lambda image: recorder.sensor_callback(image, 'camera_2'))
@@ -66,6 +69,7 @@ def main():
         camera_13.listen(lambda image: recorder.sensor_callback(image, 'camera_13'))
         camera_14.listen(lambda image: recorder.sensor_callback(image, 'camera_14'))
         camera_15.listen(lambda image: recorder.sensor_callback(image, 'camera_15'))
+        camera_16.listen(lambda image: recorder.sensor_callback(image, 'camera_16'))
 
         env.set_autopilot()
 

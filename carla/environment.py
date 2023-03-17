@@ -1,5 +1,6 @@
 import json
 import random
+import math
 from typing import Optional
 from datetime import datetime
 import carla
@@ -11,6 +12,7 @@ class CarlaEnv:
         self.sensor_list = []
         self.ai_controller_list = []
         self.pedestrian_list = []
+        self.intersections = []
         self.images = {}
         self.transforms = {}
         self.velocities = {}
@@ -92,6 +94,45 @@ class CarlaEnv:
         self.reached_destination[vehicle_id] = False
         return vehicle
 
+    def add_intersection(self, x_coord: int, y_coord: int, z_coord: int=0) -> object:
+        intersection = carla.Location(x_coord, y_coord, z_coord)
+        self.intersections.append(intersection)
+        return intersection
+
+    def is_in_intersection(self, vehicle: object, intersection: object,
+                           max_distance: int=50) -> bool:
+        vehicle_location = vehicle.get_location()
+        if intersection.distance(vehicle_location) < max_distance:
+            return True
+        return False
+
+    def get_avg_velocity(self, intersection: object) -> float:
+        velocities = 0
+        n_vehicles = 0
+        for vehicle in self.vehicle_list:
+            if self.is_in_intersection(vehicle, intersection):
+                if vehicle.get_traffic_light_state() == carla.TrafficLightState.Green:
+                    n_vehicles += 1
+                    velocity = math.hypot(vehicle.get_velocity().x, vehicle.get_velocity().y) * 3.6
+                    velocities += velocity
+        avg_velocity = velocities / n_vehicles if n_vehicles > 0 else 0
+        return avg_velocity
+
+    def spawn_vehicles(self, n_vehicles: int) -> None:
+        for _ in range(n_vehicles):
+            vehicle_bp = random.choice(self.blueprint_library.filter('vehicle.*'))
+            spawn_point = random.choice(self.spawn_points)
+            vehicle = self.world.try_spawn_actor(vehicle_bp, spawn_point)
+            if vehicle is None:
+                continue
+            self.vehicle_list.append(vehicle)
+            vehicle_id = f'vehicle_{len(self.vehicle_list)}'
+            self.transforms[vehicle_id] = []
+            self.velocities[vehicle_id] = []
+            self.vehicle_dimensions[vehicle_id] = self.process_dimensions(vehicle.bounding_box)
+            self.travelled_frames[vehicle_id] = 0
+            self.reached_destination[vehicle_id] = False
+
     def create_transform(self, location_tuple: tuple, rotation_tuple: tuple) -> object:
         location = carla.Location(location_tuple[0], location_tuple[1], location_tuple[2])
         rotation = carla.Rotation(rotation_tuple[0], rotation_tuple[1], rotation_tuple[2])
@@ -162,6 +203,12 @@ class CarlaEnv:
             sensor_dict['id'] = camera_id
             if sensor.parent is None:
                 sensor_dict['parent_id'] = None
+                transform = sensor.get_transform()
+                location = {
+                    'x': transform.location.x,
+                    'y': transform.location.y
+                }
+                sensor_dict['location'] = location
             else:
                 index = vehicle_ids.index(sensor.parent.id)
                 parent_id = f'vehicle_{index+1}'
@@ -180,6 +227,20 @@ class CarlaEnv:
             pedestrian_dict['height'] = self.pedestrian_dimensions[pedestrian_id][2]
             pedestrian_information.append(pedestrian_dict)
         return pedestrian_information
+
+    def get_intersection_information(self) -> list:
+        intersection_information = []
+        for i, intersection in enumerate(self.intersections):
+            intersection_id = f'intersection_{i+1}'
+            intersection_dict = {}
+            intersection_dict['id'] = intersection_id
+            location = {
+                    'x': intersection.x,
+                    'y': intersection.y
+                }
+            intersection_dict['location'] = location
+            intersection_information.append(intersection_dict)
+        return intersection_information
 
     def generate_waypoints(self) -> list:
         waypoints = []
@@ -204,6 +265,7 @@ class CarlaEnv:
             'n_pedestrians': len(self.pedestrian_list),
             'vehicles': self.get_vehicle_information(),
             'sensors': self.get_sensor_information(),
+            'intersections': self.get_intersection_information()
         }
         return json.dumps(metadata)
 

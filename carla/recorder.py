@@ -9,6 +9,7 @@ class Recorder:
         self.img_width = img_width
         self.img_height = img_height
         self.sensor_queue = Queue()
+        self.labels = []
         self.h5file = h5py.File(f'runs/{filename}.hdf5', 'w')
         self.sensors_group = self.h5file.create_group('sensors')
         self.state_group = self.h5file.create_group('state')
@@ -50,9 +51,15 @@ class Recorder:
             velocity_tuple = (velocity.x, velocity.y)
             velocities[vehicle_id].append(velocity_tuple)
 
+    def process_labels(self, avg_velocity: float, ratio: float, speed_limit: float=30.0) -> None:
+        label = 'congested' if avg_velocity / speed_limit < ratio else 'not_congested'
+        self.labels.append(label)
+
     def create_datasets(self, transforms: dict, velocities: dict, images: dict, vehicle_list: list,
-                        sensor_list: list, metadata: dict) -> None:
+                        sensor_list: list, metadata: dict, training: bool=False) -> None:
         self.h5file.create_dataset('metadata', data=metadata)
+        if training:
+            self.h5file.create_dataset('labels', data=self.labels)
         for i in range(len(vehicle_list)):
             vehicle_id = f'vehicle_{i+1}'
             self.state_group.create_dataset(vehicle_id, data=transforms[vehicle_id])
