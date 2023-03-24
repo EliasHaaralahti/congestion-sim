@@ -3,6 +3,8 @@
 *.h5
 results/
 figures/
+congestion_detection/data/
+congestion_detection/models/
 *.mp4
 
 ##### Below is default github python gitignore template

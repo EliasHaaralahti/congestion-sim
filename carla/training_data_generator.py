@@ -7,7 +7,7 @@ def main():
         port = 2000
         img_width = 640
         img_height = 640
-        n_frames = 5000
+        n_frames = 1000
         fps = 30
         filename = 'training_data'
         n_vehicles = 100
@@ -33,7 +33,6 @@ def main():
 
         while curr_frame < n_frames:
             env.world.tick()
-            print(env.get_avg_velocity(intersection))
             recorder.process_labels(env.get_avg_velocity(intersection), ratio=0.5)
             recorder.process_images(env.sensor_list, env.images)
             curr_frame += 1

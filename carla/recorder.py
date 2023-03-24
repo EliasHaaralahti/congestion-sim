@@ -31,7 +31,8 @@ class Recorder:
     def process_img(self, image: object) -> np.ndarray:
         img_data = np.array(image.raw_data)
         reshaped_data = img_data.reshape((self.img_height, self.img_width, 4))[:, :, :3]
-        img = Image.fromarray(reshaped_data)
+        rgb_img = reshaped_data[:, :, ::-1]
+        img = Image.fromarray(rgb_img)
         buf = io.BytesIO()
         img.save(buf, format='JPEG')
         byte_img = buf.getvalue()
@@ -53,6 +54,7 @@ class Recorder:
 
     def process_labels(self, avg_velocity: float, ratio: float, speed_limit: float=30.0) -> None:
         label = 'congested' if avg_velocity / speed_limit < ratio else 'not_congested'
+        print(f'Avg velocity: {round(avg_velocity, 2)} km/h, label: {label}')
         self.labels.append(label)
 
     def create_datasets(self, transforms: dict, velocities: dict, images: dict, vehicle_list: list,
