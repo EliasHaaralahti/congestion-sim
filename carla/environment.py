@@ -49,12 +49,29 @@ class CarlaEnv:
             spawn_points.append(self.world.get_random_location_from_navigation())
         return spawn_points
 
-    def spawn_pedestrians(self, spawn_point_indices: list) -> None:
+    def spawn_pedestrians_to_points(self, spawn_point_indices: list) -> None:
         walker_controller_bp = self.blueprint_library.find('controller.ai.walker')
         spawn_points = self.generate_spawn_points(300)
         for i in spawn_point_indices:
             walker_bp = random.choice(self.blueprint_library.filter('walker.*'))
             transform = carla.Transform(spawn_points[i])
+            pedestrian = self.world.try_spawn_actor(walker_bp, transform)
+            if pedestrian is None:
+                continue
+            self.pedestrian_list.append(pedestrian)
+            pedestrian_id = f'pedestrian_{len(self.pedestrian_list)}'
+            self.pedestrian_dimensions[pedestrian_id] = self.process_dimensions(
+                pedestrian.bounding_box)
+            ai_controller = self.world.spawn_actor(walker_controller_bp, carla.Transform(),
+                                                   attach_to=pedestrian)
+            self.ai_controller_list.append(ai_controller)
+        self.world.tick()
+
+    def spawn_pedestrians(self, n_pedestrians: int) -> None:
+        walker_controller_bp = self.blueprint_library.find('controller.ai.walker')
+        for _ in range(n_pedestrians):
+            walker_bp = random.choice(self.blueprint_library.filter('walker.*'))
+            transform = carla.Transform(self.world.get_random_location_from_navigation())
             pedestrian = self.world.try_spawn_actor(walker_bp, transform)
             if pedestrian is None:
                 continue
@@ -206,7 +223,8 @@ class CarlaEnv:
                 transform = sensor.get_transform()
                 location = {
                     'x': transform.location.x,
-                    'y': transform.location.y
+                    'y': transform.location.y,
+                    'z': transform.location.z
                 }
                 sensor_dict['location'] = location
             else:
@@ -236,7 +254,7 @@ class CarlaEnv:
             intersection_dict['id'] = intersection_id
             location = {
                     'x': intersection.x,
-                    'y': intersection.y
+                    'y': intersection.y,
                 }
             intersection_dict['location'] = location
             intersection_information.append(intersection_dict)

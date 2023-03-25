@@ -19,6 +19,6 @@ test_data = datasets.ImageFolder(root=test_directory, transform=img_transform)
 test_dataloader = DataLoader(test_data, batch_size=32, shuffle=True)
 
 detector = CongestionDetector()
-detector.load_weights('model.pt')
+detector.load_weights('models/model.pt')
 
 detector.evaluate(test_dataloader=test_dataloader)

@@ -5,6 +5,7 @@ from torch.utils.data import DataLoader
 from torchvision.models import alexnet, AlexNet_Weights
 from torchvision import transforms
 from PIL import Image
+from numpy import ndarray
 
 class CongestionDetector:
     def __init__(self, use_gpu: bool=False):
@@ -69,7 +70,8 @@ class CongestionDetector:
         self.model.load_state_dict(best_model_weights)
         print(f'Best validation accuracy: {best_val_accuracy}')
 
-    def predict(self, img: Image) -> dict:
+    def predict(self, img_array: ndarray) -> dict:
+        img = Image.fromarray(img_array)
         img_transform = transforms.Compose([
             transforms.Resize(size=256),
             transforms.CenterCrop(size=224),
@@ -104,7 +106,7 @@ class CongestionDetector:
         print(f'Test accuracy: {test_accuracy / test_data_size}')
 
     def save_weights(self, filename: str) -> None:
-        torch.save(self.model.state_dict(), f'models/{filename}')
+        torch.save(self.model.state_dict(), filename)
 
     def load_weights(self, filename: str) -> None:
-        self.model.load_state_dict(torch.load(f'models/{filename}'))
+        self.model.load_state_dict(torch.load(filename))

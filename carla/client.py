@@ -7,9 +7,9 @@ def main():
         port = 2000
         img_width = 640
         img_height = 640
-        n_frames = 500
+        n_frames = 1000
         fps = 30
-        filename = 'intersection_15_vehicles'
+        filename = 'intersection_20_vehicles'
 
         env = CarlaEnv(host, port, img_width, img_height, n_frames, fps)
         recorder = Recorder(img_width, img_height, filename)
@@ -17,8 +17,9 @@ def main():
         env.set_sync_mode()
 
         env.add_intersection(-47, 21)
+        env.add_intersection(102, 21)
 
-        env.spawn_pedestrians(spawn_point_indices=[1, 71, 48, 181, 172, 188, 24, 9, 81, 14])
+        env.spawn_pedestrians(50)
         env.move_pedestrians()
 
         vehicle_1 = env.spawn_vehicle('vehicle.tesla.model3', 79)
@@ -36,6 +37,11 @@ def main():
         vehicle_13 = env.spawn_vehicle('vehicle.tesla.model3', 49)
         vehicle_14 = env.spawn_vehicle('vehicle.mercedes.coupe', 50)
         vehicle_15 = env.spawn_vehicle('vehicle.tesla.model3', 101)
+        vehicle_16 = env.spawn_vehicle('vehicle.citroen.c3', 21)
+        vehicle_17 = env.spawn_vehicle('vehicle.ford.mustang', 58)
+        vehicle_18 = env.spawn_vehicle('vehicle.tesla.model3', 127)
+        vehicle_19 = env.spawn_vehicle('vehicle.audi.tt', 41)
+        vehicle_20 = env.spawn_vehicle('vehicle.audi.etron', 93)
 
         camera_1 = env.spawn_camera((0, 0, 2), vehicle=vehicle_1)
         camera_2 = env.spawn_camera((0, 0, 2), vehicle=vehicle_2)
@@ -52,7 +58,17 @@ def main():
         camera_13 = env.spawn_camera((0, 0, 2), vehicle=vehicle_13)
         camera_14 = env.spawn_camera((0, 0, 2), vehicle=vehicle_14)
         camera_15 = env.spawn_camera((0, 0, 2), vehicle=vehicle_15)
-        camera_16 = env.spawn_camera((-62, 3, 20), (-37, 45, 0))
+        camera_16 = env.spawn_camera((0, 0, 2), vehicle=vehicle_16)
+        camera_17 = env.spawn_camera((0, 0, 2), vehicle=vehicle_17)
+        camera_18 = env.spawn_camera((0, 0, 2), vehicle=vehicle_18)
+        camera_19 = env.spawn_camera((0, 0, 2), vehicle=vehicle_19)
+        camera_20 = env.spawn_camera((0, 0, 2), vehicle=vehicle_20)
+        # First intersection cameras
+        camera_21 = env.spawn_camera((-62, 3, 20), (-37, 45, 0))
+        camera_22 = env.spawn_camera((-31, 37, 21), (-42, -139, 0))
+        # Second intersection cameras
+        camera_23 = env.spawn_camera((64, -1, 22), (-40, 31, 0))
+        camera_24 = env.spawn_camera((89, 39, 21), (-47, -63, 0))
 
         camera_1.listen(lambda image: recorder.sensor_callback(image, 'camera_1'))
         camera_2.listen(lambda image: recorder.sensor_callback(image, 'camera_2'))
@@ -70,6 +86,14 @@ def main():
         camera_14.listen(lambda image: recorder.sensor_callback(image, 'camera_14'))
         camera_15.listen(lambda image: recorder.sensor_callback(image, 'camera_15'))
         camera_16.listen(lambda image: recorder.sensor_callback(image, 'camera_16'))
+        camera_17.listen(lambda image: recorder.sensor_callback(image, 'camera_17'))
+        camera_18.listen(lambda image: recorder.sensor_callback(image, 'camera_18'))
+        camera_19.listen(lambda image: recorder.sensor_callback(image, 'camera_19'))
+        camera_20.listen(lambda image: recorder.sensor_callback(image, 'camera_20'))
+        camera_21.listen(lambda image: recorder.sensor_callback(image, 'camera_21'))
+        camera_22.listen(lambda image: recorder.sensor_callback(image, 'camera_22'))
+        camera_23.listen(lambda image: recorder.sensor_callback(image, 'camera_23'))
+        camera_24.listen(lambda image: recorder.sensor_callback(image, 'camera_24'))
 
         env.set_autopilot()
 
