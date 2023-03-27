@@ -1,4 +1,5 @@
 import copy
+import time
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
@@ -22,11 +23,13 @@ class CongestionDetector:
 
     def train(self, criterion: nn.Module, optimizer: nn.Module, n_epochs: int,
               train_dataloader: DataLoader, val_dataloader: DataLoader) -> None:
+        start = time.time()
         train_data_size = len(train_dataloader.dataset)
         val_data_size = len(val_dataloader.dataset)
         best_val_accuracy = 0
         best_model_weights = copy.deepcopy(self.model.state_dict())
         for epoch in range(n_epochs):
+            epoch_start = time.time()
             print(f'Epoch: {epoch+1}/{n_epochs}')
             self.model.train()
             train_loss = 0
@@ -67,7 +70,11 @@ class CongestionDetector:
             if avg_val_accuracy > best_val_accuracy:
                 best_val_accuracy = avg_val_accuracy
                 best_model_weights = copy.deepcopy(self.model.state_dict())
+            epoch_time = time.time() - epoch_start
+            print(f'Epoch finished in {epoch_time // 60} minutes, {epoch_time % 60} seconds')
         self.model.load_state_dict(best_model_weights)
+        training_time = time.time() - start
+        print(f'Training finished in {training_time // 60} minutes, {training_time % 60} seconds')
         print(f'Best validation accuracy: {best_val_accuracy}')
 
     def predict(self, img_array: ndarray) -> dict:

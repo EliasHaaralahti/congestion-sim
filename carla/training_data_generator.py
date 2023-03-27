@@ -7,9 +7,9 @@ def main():
         port = 2000
         img_width = 640
         img_height = 640
-        n_frames = 1000
+        n_frames = 500
         fps = 30
-        filename = 'training_data'
+        filename = 'intersection_1_100_vehicles'
         n_vehicles = 100
 
         env = CarlaEnv(host, port, img_width, img_height, n_frames, fps)
@@ -17,12 +17,20 @@ def main():
 
         env.set_sync_mode()
 
-        intersection = env.add_intersection(-47.5, 21)
+        intersection = env.add_intersection(-47, 21)
+        # intersection = env.add_intersection(102, 21)
+
+        env.spawn_pedestrians(50)
+        env.move_pedestrians()
 
         env.spawn_vehicles(n_vehicles)
 
+        # First intersection cameras
         camera_1 = env.spawn_camera((-62, 3, 20), (-37, 45, 0))
         camera_2 = env.spawn_camera((-31, 37, 21), (-42, -139, 0))
+        # Second intersection cameras
+        # camera_1 = env.spawn_camera((64, -1, 22), (-40, 31, 0))
+        # camera_2 = env.spawn_camera((89, 39, 21), (-47, -63, 0))
 
         camera_1.listen(lambda image: recorder.sensor_callback(image, 'camera_1'))
         camera_2.listen(lambda image: recorder.sensor_callback(image, 'camera_2'))

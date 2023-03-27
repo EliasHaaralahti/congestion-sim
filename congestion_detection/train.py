@@ -42,7 +42,7 @@ data = {
 train_dataloader = DataLoader(data['train'], batch_size=32, shuffle=True)
 val_dataloader = DataLoader(data['val'], batch_size=32, shuffle=True)
 
-detector.train(criterion=criterion, optimizer=optimizer, n_epochs=5,
+detector.train(criterion=criterion, optimizer=optimizer, n_epochs=10,
                train_dataloader=train_dataloader, val_dataloader=val_dataloader)
 
 detector.save_weights('models/model.pt')
