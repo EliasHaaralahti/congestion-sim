@@ -3,6 +3,7 @@
 *.h5
 results/
 figures/
+simulation/runs/*
 congestion_detection/data/
 congestion_detection/models/
 *.mp4
