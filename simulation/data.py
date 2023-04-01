@@ -2,6 +2,7 @@
 All data from CARLA is stored in the HDF5 format and is processed 
 via the h5py library.
 """
+import os
 import io
 import ast
 import math
@@ -16,8 +17,8 @@ class DataLoader():
     """
     Abstraction class for reading data from the hdf5 files.
     """
-    def __init__(self, file='data.hdf5'):
-        self.h5file = h5py.File(file, 'r')
+    def __init__(self, file='intersection_15_vehicles.hdf5'):
+        self.h5file = h5py.File(os.path.join("runs/", file), 'r')
 
     def read_agent_ids(self) -> list[str]:
         """
@@ -60,7 +61,7 @@ class DataLoader():
         }
         return metadata_summary
 
-    
+
     def get_map(self) -> List[Tuple[int, int]]:
         """
         Returns all map markers for visualization purposes.
@@ -85,7 +86,7 @@ class DataLoader():
 
     def __del__(self):
         self.h5file.close()
-
+        
 
 # Main for testing the class.
 if __name__ == "__main__":
@@ -113,3 +114,5 @@ if __name__ == "__main__":
 
     metadata = dataloader.get_metadata_summary()
     print(f"Metadata: {metadata}")
+
+    dataloader.testing()
