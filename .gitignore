@@ -1,6 +1,7 @@
 ##### Custom ignores
 *.pt
 *.h5
+simulation/*.hdf5
 results/
 figures/
 simulation/runs/*

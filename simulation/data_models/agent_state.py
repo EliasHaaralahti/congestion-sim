@@ -18,5 +18,6 @@ class DetectedAgentState:
     Data class for new 'agents' that are detected from node processing
     """
     id: str
+    type: str
     distance: float
     width_offset: float # Width offset

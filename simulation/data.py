@@ -86,7 +86,7 @@ class DataLoader():
 
     def __del__(self):
         self.h5file.close()
-        
+
 
 # Main for testing the class.
 if __name__ == "__main__":

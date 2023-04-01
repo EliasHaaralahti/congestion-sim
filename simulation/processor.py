@@ -39,7 +39,7 @@ def process_detection(data: DetectionData) -> Tuple[float]:
     distance = (real_height * focal_length) / height_in_frame
     distance = distance / 100 # cm to m. In Carla one coordinate unit = 1m
     width_offset = (box_width_center/image_width * fov_angle) - (fov_angle / 2)
-    return DetectedAgentState(data.id, distance, width_offset)
+    return DetectedAgentState(data.id, data.type, distance, width_offset)
 
 
 def process_agent_data(data: OutputSummary) -> dict:
@@ -93,10 +93,25 @@ def process(detections: dict, data_pipe: dict, result_storage_pipe: list):
                                         np.sin(np.deg2rad(target_angle)))
     
             crashing = check_if_crashing(state, (target_x, target_y))
-            target = [target_x, target_y, crashing, detection.id, detection.distance]
+            target = [target_x, target_y, crashing, detection.id,
+                      detection.distance, detection.type]
             processed_agents[agent]['detected'].append( target )
 
-    result_storage_pipe['processing_results'].append(processed_agents)
+    return processed_agents
+
+
+def get_intersection_status(results):
+    """
+    TODO: Convert data to information about intersection status.
+    """
+    intersection_status = {
+        'car_detection_count': -1,
+        'human_detection_count': -1,
+        'total_cars': -1,
+        'status': -1
+    }
+    return intersection_status
+
 
 
 def processor(env, data_pipe: dict, result_storage_pipe: list):
@@ -110,6 +125,11 @@ def processor(env, data_pipe: dict, result_storage_pipe: list):
             results = process_agent_data(data_pipe[agent])
             detected_agents[agent] = results
 
-        process(detected_agents, data_pipe, result_storage_pipe)
+        results = process(detected_agents, data_pipe, result_storage_pipe)
+        # TODO: Processing for intersection information, such as how many
+        # agents there actually are. What is the intersection status? And such
+        intersection_status = get_intersection_status(results)
+        results['intersection_status'] = intersection_status
+        result_storage_pipe['processing_results'].append(results)
         yield env.timeout(1)
         
