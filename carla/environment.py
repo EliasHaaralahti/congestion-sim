@@ -226,7 +226,13 @@ class CarlaEnv:
                     'y': transform.location.y,
                     'z': transform.location.z
                 }
+                rotation = {
+                    'pitch': transform.rotation.pitch,
+                    'yaw': transform.rotation.yaw,
+                    'roll': transform.rotation.roll
+                }
                 sensor_dict['location'] = location
+                sensor_dict['rotation'] = rotation
             else:
                 index = vehicle_ids.index(sensor.parent.id)
                 parent_id = f'vehicle_{index+1}'

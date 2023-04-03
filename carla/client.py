@@ -65,10 +65,10 @@ def main():
         camera_20 = env.spawn_camera((0, 0, 2), vehicle=vehicle_20)
         # First intersection cameras
         camera_21 = env.spawn_camera((-62, 3, 20), (-37, 45, 0))
-        camera_22 = env.spawn_camera((-31, 37, 21), (-42, -139, 0))
+        camera_22 = env.spawn_camera((-31, 37, 20), (-42, -139, 0))
         # Second intersection cameras
-        camera_23 = env.spawn_camera((64, -1, 22), (-40, 31, 0))
-        camera_24 = env.spawn_camera((89, 39, 21), (-47, -63, 0))
+        camera_23 = env.spawn_camera((64, -1, 20), (-40, 31, 0))
+        camera_24 = env.spawn_camera((89, 39, 20), (-47, -63, 0))
 
         camera_1.listen(lambda image: recorder.sensor_callback(image, 'camera_1'))
         camera_2.listen(lambda image: recorder.sensor_callback(image, 'camera_2'))
