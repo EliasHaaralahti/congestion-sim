@@ -3,10 +3,17 @@ import os
 import time
 import simpy
 from node import Node
-from processor import processor
+from processor import Processor
 from data import DataLoader
 from model import Model
 
+
+PRINT_PROGRESS = True
+def print_progress(env, max_steps):
+    while True:
+        print(f"Finished processing step {env.now + 1} / " \
+              f"{max_steps}", end='\r')
+        yield env.timeout(1)
 
 
 def write_data(processed_data):
@@ -32,7 +39,7 @@ def main():
     model = Model()
 
     sim_length = dataloader.get_simulation_length()
-    agent_ids = dataloader.read_agent_ids()
+    agent_ids = dataloader.get_entity_ids()
     # Use a dictionary entry for all agents and the value will be the latest output.
     # This will be a temporary communication pipe
     # Later this could use actual simpy store as done in
@@ -50,7 +57,11 @@ def main():
         env.process( node.run() )
 
     # Create the 'central processor' process.
-    env.process( processor(env, data_pipe, result_storage_pipe) )
+    processor = Processor(env, data_pipe, result_storage_pipe, dataloader)
+    env.process( processor.run() )
+
+    if PRINT_PROGRESS:
+        env.process( print_progress(env, sim_length))
 
     print(f"\n\nStarting simulation with {sim_length} timesteps")
     start_time = time.time()
@@ -58,7 +69,8 @@ def main():
     final_time = time.time() - start_time
     loop_time = final_time / sim_length
     
-    print(f"Simulation done in {final_time:.1f} seconds.")
+    print("Done")
+    print(f"Simulation lasted {final_time:.1f} seconds.")
     print(f"Simulation for each timestep took approximitely {loop_time:.3f} seconds.")
     # Write processed results for visualization
     write_data(result_storage_pipe)
