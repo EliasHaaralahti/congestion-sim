@@ -21,6 +21,7 @@ class OutputSummary:
     Data class for describing data sent by nodes to the processor
     """
     node_id: str
+    is_rsu: bool
     agent_x: float # X position of agent in the world
     agent_y: float # Y position of agent in the world
     direction: float

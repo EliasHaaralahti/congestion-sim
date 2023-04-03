@@ -4,28 +4,40 @@ via the h5py library.
 """
 import os
 import io
-import ast
+import json
 import math
 from typing import List, Tuple
 import h5py
 from numpy import ndarray, asarray
 from PIL import Image
-from data_models.agent_state import AgentState
+from data_models.agent_state import EntityState
 
 
 class DataLoader():
     """
     Abstraction class for reading data from the hdf5 files.
     """
-    def __init__(self, file='intersection_15_vehicles.hdf5'):
+    def __init__(self, file='intersection_5_vehicles.hdf5'):
         self.h5file = h5py.File(os.path.join("runs/", file), 'r')
 
-    def read_agent_ids(self) -> list[str]:
+    def get_entity_ids(self) -> list[str]:
         """
-        Read from the simulation data all the agent identifiers
-        that occur in the current scene.
+        Read from the simulation data all the entity identifiers
+        that occur in the current scene. This includes RSUs.
         """
         return list(self.h5file['sensors'].keys())
+    
+    def get_intersections(self) -> list[object]:
+        """
+        Read intersection metadata to get the 
+        locations of intersections
+        """
+        data = self.h5file.get("metadata", 'r')
+        # .value is old syntax. [()] does same now.
+        data = data[()].decode("UTF-8")
+        # Convert bytes to a dictionary
+        data = json.loads(data)
+        return data.get("intersections", 'r')
 
     def get_simulation_length(self) -> int:
         data = self.h5file.get("sensors/", 'r')
@@ -33,7 +45,7 @@ class DataLoader():
 
     def read_images(self, agent: str, simulation_step: int) -> ndarray:
         """
-        Returns agent camera photo at simulation step
+        Returns entity camera photo at simulation step
         """
         frames = self.h5file.get(f'sensors/{agent}', 'r')
         frame = frames[simulation_step]
@@ -50,7 +62,7 @@ class DataLoader():
         # .value is old syntax. [()] does same now.
         data = data[()].decode("UTF-8")
         # Convert bytes to a dictionary
-        data = ast.literal_eval(data)        
+        data = json.loads(data)
         metadata_summary = {
             "timestamp": data['timestamp'],
             "map_name": data['map'],
@@ -69,20 +81,34 @@ class DataLoader():
         data = self.h5file.get("metadata", 'r')
         # .value is old syntax. [()] does same now.
         data = data[()].decode("UTF-8")
-        # Convert bytes to a dictionary
-        data = ast.literal_eval(data)
+        data = json.loads(data)
         return data['waypoints']
 
 
-    def read_agent_state(self, agent: str, simulation_step: int) -> AgentState:
+    def read_entity_state(self, entity: str, simulation_step: int) -> EntityState:
         """
-        Returns agent state at simulation step
+        Returns entity state at simulation step for a vehicle. Note RSUs do not have state.
         """
-        agent_vehicle = agent.replace('camera_', 'vehicle_')
-        data = self.h5file.get(f'state/{agent_vehicle}')[simulation_step]
-        vel_x, vel_y = self.h5file.get(f'velocity/{agent_vehicle}')[simulation_step]
+        entity_vehicle = entity.replace('camera_', 'vehicle_')
+        
+        data = self.h5file.get(f'state/{entity_vehicle}')
+        if data is None: # If no state, the entity is a RSU
+            data = self.h5file.get("metadata", 'r')
+            data = data[()].decode("UTF-8")
+            data = json.loads(data)
+            
+            # Find the RSU under metadata/sensors. A RSU does not have a parent and has a location.
+            for entity_data in data.get('sensors'):
+                if "location" in entity_data and entity_data['id'] == entity:
+                    return EntityState(is_rsu=True, x=entity_data['location']['x'], y=entity_data['location']['y'], 
+                                       direction=entity_data['rotation']['yaw'], velocity=0)
+
+            return None # No RSU found.
+        
+        data = data[simulation_step]
+        vel_x, vel_y = self.h5file.get(f'velocity/{entity_vehicle}')[simulation_step]
         velocity = math.hypot(vel_x, vel_y)
-        return AgentState(x=data[0], y=data[1], direction=data[2], velocity=velocity)
+        return EntityState(is_rsu=False, x=data[0], y=data[1], direction=data[2], velocity=velocity)
 
     def __del__(self):
         self.h5file.close()
@@ -99,20 +125,25 @@ if __name__ == "__main__":
     map_points = dataloader.get_map()
     print(f"Map points len: {len(map_points)}, point 0: {map_points[0]}")
 
-    agents = dataloader.read_agent_ids()
+    intersections = dataloader.get_intersections()
+    print(f"Intersections: {intersections}")
+
+    agents = dataloader.get_entity_ids()
     print(f"Agent ids: {agents}")
     
-    agent_test = agents[0]
-    SIMULATION_STEP = 0
+    print("Testing all agents")
+    for agent in agents:
+        print(f"\nAgent {agent}")
+        SIMULATION_STEP = 0
 
-    state = dataloader.read_agent_state(agent_test, SIMULATION_STEP)
-    print(f"Agent state: {state}")
+        state = dataloader.read_entity_state(agent, SIMULATION_STEP)
+        if state is None:
+            raise Exception("ERROR: State should not be none!")
+        
+        print(f"Agent state: {state}")
 
+        image = dataloader.read_images(agent, SIMULATION_STEP)
+        print(f"Image shape: {image.shape}")
 
-    image = dataloader.read_images(agent_test, SIMULATION_STEP)
-    print(f"Image shape: {image.shape}")
-
-    metadata = dataloader.get_metadata_summary()
-    print(f"Metadata: {metadata}")
-
-    dataloader.testing()
+        metadata = dataloader.get_metadata_summary()
+        print(f"Metadata: {metadata}")
