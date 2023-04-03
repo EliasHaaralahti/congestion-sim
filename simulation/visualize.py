@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 from data import DataLoader
 from utils.visualizations import *
 
+IS_INTERACTIVE = True
+SKIP_TIMESTEPS = 30
 
 RESULTS_FILE = "results.json"
 path = os.path.join('results', RESULTS_FILE)
@@ -13,7 +15,7 @@ with open(path) as json_file:
 
 dataloader = DataLoader()
 metadata_summary = dataloader.get_metadata_summary()
-agents = dataloader.read_agent_ids()
+agents = dataloader.get_entity_ids()
 x_waypoints, y_waypoints = zip(*dataloader.get_map()) # List of (x,y).
 waypoints = (x_waypoints, y_waypoints)
 x_waypoint_min, x_waypoint_max = min(x_waypoints), max(x_waypoints)
@@ -54,6 +56,6 @@ def render_visualization(interactive=False, skip_timesteps=0):
             print(f"Saved figure {timestep+1} / {max_timesteps}", end='\r')
         plt.close()
         timestep += 1 + skip_timesteps
+    print("done")
 
-print("done")
-render_visualization(interactive=True, skip_timesteps=30)
+render_visualization(interactive=IS_INTERACTIVE, skip_timesteps=SKIP_TIMESTEPS)

@@ -4,74 +4,109 @@ from typing import List, Tuple
 import matplotlib as mpl
 import matplotlib.patheffects as pe
 import matplotlib.patches as patches
+import matplotlib.pyplot as plt
+from data_models.world import World
 
 
-# TODO: Use cmap or something to automatically pick colors?
-colors = ['blue', 'red', 'yellow', 'black', 'orange', 'green']
+COLOR_MAP = plt.get_cmap('viridis')
 
 
-def draw_information_view(ax: Axes, agent_count, data, timestep):
-    status = data['processing_results'][timestep]['intersection_status']
-    car_detection_count = status['car_detection_count']
-    human_detection_count = status['human_detection_count']
-    total_cars = status['total_cars']
-    intersection_status = status['status']
+def draw_information_view(ax: Axes, agent_count, data: World, timestep):
+    timestep_data = data['processing_results'][timestep]
 
-    ax.set_title("Scene information")
-    ax.text(0.01, 0.93, f"Agents in intersection (from metadata): {agent_count}", 
-            size=15, color='black')
-    ax.text(0.01, 0.85, 
-            f"Total cars (agents + detections): {agent_count + car_detection_count}", 
-            size=15, color='black')
-    ax.text(0.01, 0.77, f"Total humans: {human_detection_count}", 
-            size=15, color='black')
-    ax.text(0.01, 0.69, f"Total cars in intersection: {total_cars}", 
-            size=15, color='black')
-    ax.text(0.01, 0.61-0.08, f"Intersection status: {intersection_status}", 
-            size=15, color='black')
+    ax.set_title("Intersections")
+
+    # Loop over intersections
+    for id, intersection in timestep_data['intersection_statuses'].items():
+        status = intersection['status']
+        car_count = intersection['car_count']
+        human_count = intersection['human_count']
+        rsu_count = intersection['rsu_count']
+
+        ax.text(0.01, 0.93, f"Agents in intersection {id}: {agent_count}", 
+                size=15, color='black')
+        ax.text(0.01, 0.85, 
+                f"Total cars (agents + detections): {car_count}", 
+                size=15, color='black')
+        ax.text(0.01, 0.77, f"Total humans: {human_count}", 
+                size=15, color='black')
+        ax.text(0.01, 0.69, f"RSUs in intersection: {rsu_count}", 
+                size=15, color='black')
+        ax.text(0.01, 0.61-0.08, f"Intersection status: {status}", 
+                size=15, color='black')
+        
+        break # TODO Temp loop only once, later need to find places for labels...
 
 
 def draw_car_views(axes: Axes, agents, data, timestep, dataloader):
     for i, agent in enumerate(agents):
-        agent_data = data['processing_results'][timestep][agent]
+        # limit to two first results for now TODO
+        if i == 2:
+            break
+
+        agent_data = data['processing_results'][timestep]['agents'][agent]
         image = dataloader.read_images(agent, timestep)
         # Draw the yolo detection
         yolo_bounds = data['yolo_images'][agent][timestep]
         velocity = agent_data['velocity']
+        total_agents = len(agents)
+        colors = [COLOR_MAP(1.*i/total_agents) for i in range(total_agents)]
         axes[0, i].set_title(
             f"Agent ID: {agent}, Color: {colors[i]}, Velocity: {velocity:.1f}m/s")
         axes[0, i].imshow(image)
 
         for bounds in yolo_bounds:
             # -1 -> No detection
-            if not -1 in bounds:
-                # Draw the border
-                id = bounds[0]
-                type = bounds[1]
-                x_min = bounds[2]
-                x_max = bounds[3]
-                y_min = bounds[4]
-                y_max = bounds[5]
-                height = y_max - y_min
-                width = x_max - x_min
-
-                # Rectangle(xy, width, height, ...
-                rect = patches.Rectangle((x_min, y_min), width, height, linewidth=1, 
-                                        edgecolor='r', facecolor='none')
-                axes[0, i].add_patch(rect)
-
-                # Find distance to current agent using bounds id and detection id
-                matching_detection = [
-                    i for i in agent_data['detected'] if i[3]==id
-                    ][0]
+            if -1 in bounds:
+                continue
                 
-                text = f"C: {type}, D: {matching_detection[4]:.1f}m"
-                # if crashing
-                if matching_detection[2]: 
-                    text += " - PROXIMITY WARNING"
-                axes[0, i].text(
-                    x_min, y_min-10, text, size=13, color='white',
-                    path_effects=[pe.withStroke(linewidth=2, foreground="black")])
+            # Draw the border
+            id = bounds[0]
+            type = bounds[1]
+            x_min = bounds[2]
+            x_max = bounds[3]
+            y_min = bounds[4]
+            y_max = bounds[5]
+            height = y_max - y_min
+            width = x_max - x_min
+
+            # Rectangle(xy, width, height, ...
+            rect = patches.Rectangle((x_min, y_min), width, height, linewidth=1,
+                                    edgecolor='r', facecolor='none')
+            axes[0, i].add_patch(rect)
+
+            # Find distance to current agent using bounds id and detection id
+            print("HMM")
+            print(agent_data['detected'])
+            print("with id: " + str(id))
+
+            # Find the detected agent state, such as distance
+            matching_detection = None
+            print("All detections: ")
+            print(agent_data['detected'])
+            
+            """
+            for detection in agent_data['detected']:
+                # id is in form <number>-camera_<number>. Match only camera_<number>.
+                det_id = detection[4]
+                actual_det_id = det_id.partition("-")[2]
+                actual_id = id.partition("-")[2]
+                print(f"Comparing ids {actual_id} and {actual_det_id}")
+                if actual_det_id == actual_id:
+                    matching_detection = detection
+            """
+
+            matching_detection = [
+                i for i in agent_data['detected'] if i[4]==id
+                ][0]
+
+            text = f"C: {type}, D: {matching_detection[5]:.1f}m"
+            # if crashing
+            if matching_detection[2]: 
+                text += " - COLLISION WARNING"
+            axes[0, i].text(
+                x_min, y_min-10, text, size=13, color='white',
+                path_effects=[pe.withStroke(linewidth=2, foreground="black")])
 
 
 def draw_map(ax: Axes, waypoints: Tuple, agents, data, timestep):
@@ -79,17 +114,18 @@ def draw_map(ax: Axes, waypoints: Tuple, agents, data, timestep):
     Draw the top-view map visualization and markers for cars and humans.
     """
     x_waypoints, y_waypoints = waypoints
-    human_marker, car_marker = get_human_marker(), get_car_marker()
+    human_marker, car_marker, rsu_marker = get_human_marker(), get_car_marker(), get_rsu_marker()
     min_x, max_x, min_y, max_y = get_relevant_coordinates(
             agents, timestep, data['processing_results'])
 
     ax.set_title("2D scene map")
-    ax.scatter(x_waypoints, y_waypoints, c='k', s=5, zorder=0)
+    ax.scatter(x_waypoints, y_waypoints, c='k', s=1, zorder=0)
     ax.set_xlim([min_x-60, max_x+60])
     ax.set_ylim([min_y-60, max_y+60])
 
+    total_agents = len(agents)
     for i, agent in enumerate(agents):
-        agent_data = data['processing_results'][timestep][agent]
+        agent_data = data['processing_results'][timestep]['agents'][agent]
         # Rotation difference between CARLA (unit circle -> right = angle 0)
         # Matplotlib 0 angle = up. -90 to compensate. Additionally since the
         # y-axis is flipped, need to account for that too with calculate_angle_y_flip.
@@ -100,20 +136,31 @@ def draw_map(ax: Axes, waypoints: Tuple, agents, data, timestep):
         #m._transform.rotate_deg(rotation_adjusted)
         agent_marker = car_marker.transformed(
             mpl.transforms.Affine2D().rotate_deg(rotation_adjusted))
+        
+        # + rsus are rotated + 90, as the marker points down by default
+        rsu_marker_2 = rsu_marker.transformed(
+            mpl.transforms.Affine2D().rotate_deg(rotation_adjusted + 90))
 
         # Draw markers on the map
-        ax.scatter(
-            agent_data['x'], agent_data['y'], c=colors[i], marker=agent_marker, s=100)
+        colors = [COLOR_MAP(1.*i/total_agents) for i in range(total_agents)]
+
+        if agent_data['is_rsu']: # Agent is RSU
+            ax.scatter(
+                agent_data['x'], agent_data['y'], color=colors[i], marker=rsu_marker_2, s=500)
+        else: # Agent is vehicle
+            ax.scatter(
+                agent_data['x'], agent_data['y'], color=colors[i], marker=agent_marker, s=100)
         
         for detection in agent_data['detected']:
-            x_det, y_det, crashing_det, id, distance, type = detection
+            # If matches, the car matches to an existing agent.
+            x_det, y_det, crashing_det, distance_to_agent, id, distance, type, matches = detection
             color = "red" if crashing_det else "black"
 
             if type == "car": # car
-                ax.scatter(x_det, y_det, c=colors[i], edgecolors=color)
+                ax.scatter(x_det, y_det, color=colors[i], edgecolors=color)
             else: # human
                 ax.scatter(x_det, y_det, marker=human_marker,
-                                c=colors[i], edgecolors=color, s=200)
+                                color=colors[i], edgecolors=color, s=200)
             
     # Rotate Y axis since CARLA Y axis is "upside down".
     ax.set_ylim(ax.get_ylim()[::-1])
@@ -125,6 +172,10 @@ def get_relevant_coordinates(agents: List[str], step: int, processed: object):
     and detected entity. Used for scaling the visualization.
     """
 
+    # TODO: What is this. Clean and use actual sim length.
+    #   -> This was a trick to instead get min and max coordinates over
+    #       all steps. Constant jumping in a video looks bad. Need to decide
+    #       how this should be in the future.
     # TEMP: ignore step. Check all timesteps
     sim_length = 700 - 1
 
@@ -133,7 +184,7 @@ def get_relevant_coordinates(agents: List[str], step: int, processed: object):
     for sim_step in range(sim_length):
         coordinates = []
         for a in agents:
-            a_state = processed[sim_step][a]
+            a_state = processed[sim_step]['agents'][a]
             coordinates.append( (a_state['x'], a_state['y']) )
             for d in a_state['detected']:
                 coordinates.append( (d[0], d[1]) )
@@ -186,6 +237,26 @@ def get_car_marker():
         car_codes.append(Path.LINETO)
     car_marker = Path(car_verts, car_codes)
     return car_marker
+
+
+def get_rsu_marker():
+    # RSU center is approx around 0,0 to ensure markers are placed
+    # properly at center of x,y 
+    rsu_verts = [
+        # x,y (0,0) = left bottom
+        (0, 0.5),
+        (-0.25, 0.5),
+        (-0.25, 1),
+        (0.25, 1),
+        (0.25, 0.5),
+        (0, 0.5),
+        (0, -0.25),
+    ]
+    rsu_codes = [Path.MOVETO]
+    for _ in range(len(rsu_verts) - 1):
+        rsu_codes.append(Path.LINETO)
+    rsu_marker = Path(rsu_verts, rsu_codes)
+    return rsu_marker
 
 
 def get_human_marker():
