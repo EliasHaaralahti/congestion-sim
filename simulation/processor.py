@@ -216,6 +216,9 @@ class Processor():
                 statuses[intersection_id]['speeds'].append(velocity)
 
             # Add detections
+            # TODO: Do not add detections of cars with "matches" or w/e attribute 
+            # it was. Thi sdetection is believed to be an existing agent, and should not 
+            # affect statistics.
             for detection in agent_data['detected']:
                 detection_type = detection[5]
                 if detection_type == "car":
