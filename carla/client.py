@@ -1,9 +1,15 @@
+"""Script for collecting sensor data for the discrete-event simulation."""
 from environment import CarlaEnv
 from recorder import Recorder
 
 def main():
+    """
+    A main loop that is responsible for creating the CARLA environment, spawning and moving
+    pedestrians and vehicles, as well as collecting data from the vehicles and RSUs.
+    The simulation is run for `n_frames`.
+    """
     try:
-        host = '192.168.0.114'
+        host = 'localhost'
         port = 2000
         img_width = 640
         img_height = 640
