@@ -1,9 +1,15 @@
+"""Helper script for visualizing vehicle and pedestrian spawn points."""
 import time
 import carla
 
 def main():
+    """
+    A main loop that is responsible for creating the CARLA environment and visualizing pedestrian
+    and vehicle spawn points. Vehicle spawn points are visualized in red and pedestrian spawn points
+    are visualized in blue. The location of the spectator is printed to the terminal every second.
+    """
     try:
-        client = carla.Client('192.168.0.114', 2000)
+        client = carla.Client('localhost', 2000)
 
         world = client.get_world()
         spectator = world.get_spectator()
@@ -29,4 +35,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-    

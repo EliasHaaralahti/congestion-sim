@@ -1,3 +1,4 @@
+"""Script for training the CongestionDetector model."""
 import os
 from torch import nn
 from torch import optim

@@ -1,3 +1,8 @@
+"""
+Script for converting one or more HDF5 files to image dataset. The dataset is split into
+training, validation and test sets using 80:10:10 ratio. Undersampling is used to balance
+the class distribution.
+"""
 import os
 import shutil
 import io
@@ -23,7 +28,7 @@ n_samples = {
 for i, dataset in enumerate(datasets):
     labels = dataset['labels']
     sensors = dataset['sensors']
-    for j, sensor in enumerate(dataset['sensors']):
+    for j, sensor in enumerate(sensors):
         for k, frame in enumerate(dataset[f'sensors/{sensor}']):
             print('Processing images from dataset: ' + str(i+1) + '/' + str(len(datasets)) +
                   ', sensor: ' + str(j+1) + '/' + str(len(sensors)) + ', timestep: ' + str(k+1) +

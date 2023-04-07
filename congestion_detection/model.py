@@ -1,3 +1,4 @@
+"""Script containing a class for creating the congestion detection model."""
 import copy
 import time
 import torch
@@ -9,6 +10,10 @@ from PIL import Image
 from numpy import ndarray
 
 class CongestionDetector:
+    """
+    Class that represents the pre-trained AlexNet model that is fine-tuned to detect if
+    an image of traffic (taken by RSU) is congested or not.
+    """
     def __init__(self, use_gpu: bool=False):
         self.n_classes = 2
         self.classes = ['congested', 'not_congested']
@@ -23,6 +28,10 @@ class CongestionDetector:
 
     def train(self, criterion: nn.Module, optimizer: nn.Module, n_epochs: int,
               train_dataloader: DataLoader, val_dataloader: DataLoader) -> None:
+        """
+        Train the binary classifier. Early stopping is used to save the model with
+        the highest validation accuracy.
+        """
         start = time.time()
         train_data_size = len(train_dataloader.dataset)
         val_data_size = len(val_dataloader.dataset)
@@ -78,6 +87,7 @@ class CongestionDetector:
         print(f'Best validation accuracy: {best_val_accuracy}')
 
     def predict(self, img_array: ndarray) -> dict:
+        """Make predictions using the model. Returns a dictionary with the class probabilities."""
         img = Image.fromarray(img_array)
         img_transform = transforms.Compose([
             transforms.Resize(size=256),
@@ -98,6 +108,7 @@ class CongestionDetector:
             return prediction
 
     def evaluate(self, test_dataloader: DataLoader) -> None:
+        """Evaluate the model using a separate test set."""
         test_data_size = len(test_dataloader.dataset)
         test_accuracy = 0
         with torch.no_grad():
@@ -113,7 +124,9 @@ class CongestionDetector:
         print(f'Test accuracy: {test_accuracy / test_data_size}')
 
     def save_weights(self, filename: str) -> None:
+        """Save model weights."""
         torch.save(self.model.state_dict(), filename)
 
     def load_weights(self, filename: str) -> None:
+        """Load model weights."""
         self.model.load_state_dict(torch.load(filename))
