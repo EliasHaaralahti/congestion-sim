@@ -1,3 +1,4 @@
+from typing import List
 from typing import Tuple
 from model import Model
 from data_models.output_summary import OutputSummary, DetectionData
@@ -30,7 +31,7 @@ class Node():
         camera_image = self.dataloader.read_images(self.node_id, self.env.now)
         return agent_state, camera_image
 
-    def summarize_output(self, raw_output: object, 
+    def summarize_output(self, raw_output: object,
                          im_shape, state: EntityState) -> OutputSummary:
         """
         Convert raw model results into OutputSummary data class.
@@ -44,7 +45,7 @@ class Node():
         # and exclude results for classes other than car and human.
         # Note, for optimization instead of using iterrows
         # alternative panda methods could possibly be used.
-        detections = []
+        detections: List[OutputSummary] = []
         for i, row in pandas_yolo_results.iterrows():
             if row['name'] == 'car' or row['name'] == 'person':
 
@@ -59,7 +60,8 @@ class Node():
                         continue
 
                 detection = DetectionData(
-                    id=f"{i}-{self.node_id}",
+                    parent_id=self.node_id,
+                    detection_id=str(i),
                     type=row['name'],
                     xmin=row['xmin'],
                     xmax=row['xmax'],
@@ -87,23 +89,11 @@ class Node():
         while True:
             state, image = self.read_data()
             raw_output = self.model.forward(image)
-            # Debugging / visualization
             output = self.summarize_output(raw_output, image.shape, state)
-
-            json_friendly_list = []
-            if len(output.detections) > 0:
-                for detection in output.detections:
-                    json_friendly = (
-                        detection.id,
-                        detection.type,
-                        detection.xmin,
-                        detection.xmax,
-                        detection.ymin,
-                        detection.ymax,
-                    )
-                    json_friendly_list.append(json_friendly)
-            self.result_storage_pipe['yolo_images'][self.node_id].append(json_friendly_list)
-            
+            # Store the yolo bounding boxes. This is only needed for visualization purposes.
+            self.result_storage_pipe['yolo_images'].extend(output.detections)
+            # "Communicate" the output to the processir by storing it in the data_pipe.
             self.data_pipe[self.node_id] = output
+            # Progress the simulation for this node by 1 unit.
             yield self.env.timeout(1)
             

@@ -17,14 +17,26 @@ def print_progress(env, max_steps):
 
 
 def write_data(processed_data):
+    # Write collected data to multiple output files
     folder = "results/"
     if not os.path.exists(folder):
         os.makedirs(folder)
 
-    path = folder + "results.json"
-    with open(path, 'w', encoding="utf-8") as file:
-        json.dump(processed_data, file)
+    # First write simulation results
+    path_results = folder + "results.json"
+    with open(path_results, 'w', encoding="utf-8") as file:
+        json.dump(processed_data['processing_results'], file)
 
+    # Second write the yolo detection results, used for visualization.
+    path_yolo = folder + "yolo_results.json"
+    with open(path_yolo, 'w', encoding="utf-8") as file:
+        data = processed_data['yolo_images']
+        # Convert image output objects to dicts for json.
+        for i, detection in enumerate(data):
+            data[i] = detection.to_json()
+
+        #print(type(data))
+        json.dump(data, file)
 
 def main():
     """
@@ -46,10 +58,13 @@ def main():
     # https://simpy.readthedocs.io/en/latest/examples/process_communication.html
     data_pipe = {}
     # yolo_images is dict with key agent value detections for each timestep
-    result_storage_pipe = {'processing_results': [], 'yolo_images': {}}
-    # Add yolo_images key and value array
-    for agent in agent_ids:
-        result_storage_pipe['yolo_images'][agent] = []
+    result_storage_pipe = {
+        'processing_results': {
+            "agents": [],
+            "intersection_statuses": []
+        },
+        'yolo_images': []
+    }
 
     # Create nodes and add to simulation as processes
     for node_id in agent_ids:

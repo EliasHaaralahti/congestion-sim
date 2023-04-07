@@ -25,9 +25,9 @@ class Processor():
         self.threshold_congestigation_high = 10
         # meters, how far detections are assumed to be agents.
         self.threshold_detection_radius = 2
-        self.threshold_congestigation_speed = 11 # km/h
+        self.threshold_congestigation_speed = 12 # km/h
         # meters, how far away from intersection to be counted as part of intersection
-        self.threshold_within_intersection_range = 15
+        self.threshold_within_intersection_range = 50
         
 
     def get_distance(self, agent: OutputSummary, target: Tuple[int, int]) -> float:
@@ -69,7 +69,7 @@ class Processor():
         box_width_center = data.xmin + ((data.xmax - data.xmin) / 2)
         fov_angle = 90 # Camera fov should be 90.
         real_height = 0
-        if data.type == "car":
+        if data.type == "vehicle":
             real_height = 1500
         elif data.type == "person":
             real_height = 1700
@@ -78,16 +78,15 @@ class Processor():
         distance = (real_height * focal_length) / height_in_frame
         distance = distance / 100 # cm to m. In Carla one coordinate unit = 1m
         width_offset = (box_width_center/image_width * fov_angle) - (fov_angle / 2)
-        return DetectedEntityState(data.id, data.type, distance, width_offset)
+        id = f"{data.parent_id}-{data.detection_id}" 
+        return DetectedEntityState(id, data.type, distance, width_offset)
 
-    def process_agent_data(self, data: OutputSummary) -> dict:
+    def process_agent(self, data: OutputSummary) -> dict:
         detections: List[DetectionData] = data.detections
-
-        # Process detections
         processed_detections = []
         for detection in detections:
-            result = self.process_detection(detection)
-            processed_detections.append(result)
+            detection_result = self.process_detection(detection)
+            processed_detections.append(detection_result)
         return processed_detections
     
     def is_detection_another_agent(self, current_agent_name, agent_names, target_position):
@@ -122,7 +121,7 @@ class Processor():
 
         return distance, False
 
-    def process(self, detections: dict) -> World:
+    def process_all(self, detections: dict) -> World:
         """
         Visualize the 'agents' found while processing the image date
         Color indicates which node was behind the detection.
@@ -136,20 +135,18 @@ class Processor():
         """
         # Dict of agents with fields x,y,direction and detected,
         # which is array of arrays [[x,y]]
-        processed_agents = {'agents': {}}
+        # TODO Depricated. Instead add all to a list.
+        #processed_agents = {'agents': {}}
+        processed_agents = {'agents': []}
+        # Detections is a dict of agents with value list of detections.
         for agent_name in detections:
             state: OutputSummary = self.data_pipe[agent_name]
             node_direction = state.direction
-            processed_agents['agents'][agent_name] = {
-                'x': state.agent_x,
-                'y': state.agent_y,
-                'is_rsu': state.is_rsu,
-                'intersection': self.get_closest_intersection(state),
-                'direction': node_direction,
-                'velocity': state.velocity,
-                'detected': []
-            }
-
+            intersection = self.get_closest_intersection(state)
+            
+            # First add all the detections by the agent as new agent
+            any_detection_crashing = False
+            detection: DetectionData
             for detection in detections[agent_name]:
                 #detected_agent_offset = detection.offset
 
@@ -168,70 +165,94 @@ class Processor():
                 matches_agent = self.is_detection_another_agent(agent_name, detections, (target_x, target_y))
                 # The processed agents must still be kept, as needed for bounding box drawing 
                 # in visualization! Added to label to target matches_agent to allow filtering.
-                target = [target_x, target_y, crashing, distance_to_agent, detection.id,
-                        detection.distance, detection.type, matches_agent]
-                processed_agents['agents'][agent_name]['detected'].append( target )
+                if crashing:
+                    any_detection_crashing = True
+                # TODO: Depricated code. Remove when new works.
+                #processed_agents['agents'][agent_name]['detected'].append( target )
+                # Now detections are also handled as agents. Detected attribute 
+                # tells if the agent is already known or detected.
+                # TODO: Combine these dicts to a new datatype. Or use existing.
+                # TODO: Try to combine existing data types. Less is better.
+                processed_agents['agents'].append({
+                    'id': detection.id,
+                    'x': target_x,
+                    'y': target_y,
+                    'type': detection.type,
+                    'crashing': crashing,
+                    'intersection': intersection,
+                    'direction': 0,
+                    'velocity': 0,
+                    'detected': True, # Agent is detected. Properties not known.
+                    'matches': matches_agent, # Does the detection match actual agent
+                    'timestep': self.env.now
+                })
 
+                # Then add the original agent too.
+                # TODO: Using same intersection for node and detections. This may be false.
+                agent_type = "rsu" if state.is_rsu else "vehicle"
+                processed_agents['agents'].append({
+                    'id': state.node_id,
+                    'x': state.agent_x,
+                    'y': state.agent_y,
+                    'type': agent_type,
+                    'crashing': any_detection_crashing,
+                    'intersection': intersection,
+                    'direction': node_direction,
+                    'velocity': state.velocity,
+                    'detected': False, # Is the agent detected or "known" from data.
+                    'matches': False,
+                    'timestep': self.env.now
+                })
         return processed_agents
 
     def get_intersection_statuses(self, world: World) -> List[IntersectionStatus]:
         """
         Analyze intersection and get intersection status data object.
         """
-        statuses: List[IntersectionStatus] = {}
+        statuses: List[IntersectionStatus] = []
 
         # Initialize the dict with all intersections.
-        for intersection in self.dataloader.get_intersections():
-            statuses[intersection['id']] = {
+        intersections = self.dataloader.get_intersections()
+        for i, intersection in enumerate(intersections):
+            statuses.append({
                 'id': intersection['id'],
                 'car_count': 0,
                 'human_count': 0,
                 'rsu_count': 0,
                 'speeds': [], # in m/s
                 'status': "low" 
-            }
+            })
 
-        # Loop each agent in the scene (cars, RSUs...)
-        for agent in world['agents']:
-            agent_data = world['agents'][agent]
+        # Loop each agent in the scene (cars, RSUs...). Note agents also 
+        # include detections, which have been converted to agents.
+        #print(world['agents'])
+        for agent_data in world['agents']:
             agent_intersection: Intersection = agent_data['intersection']
 
             # Agent is not currently part of any intersection
             if agent_intersection is None:
                 continue
                 
-            intersection_id = agent_intersection['id']
-
             # Add agent if not rsu. Rsus do not add
-            if agent_data['is_rsu']:
-                rsu_count = statuses[intersection_id]['rsu_count']
+            if agent_data['type'] == "rsu":
+                rsu_count = statuses[i]['rsu_count']
                 rsu_count += 1
-                statuses[intersection_id]['rsu_count'] = rsu_count
-            else: # vehicle
-                vehicle_count = statuses[intersection_id]['car_count']
+                statuses[i]['rsu_count'] = rsu_count
+            elif agent_data['type'] == "vehicle":
+                vehicle_count = statuses[i]['car_count']
                 vehicle_count += 1
-                statuses[intersection_id]['car_count'] = vehicle_count
+                statuses[i]['car_count'] = vehicle_count
                 # add speed to speeds for congestion analysis.
                 velocity = agent_data['velocity']
-                statuses[intersection_id]['speeds'].append(velocity)
+                statuses[i]['speeds'].append(velocity)
+            else: # pedestrian
+                human_count = statuses[i]['human_count']
+                human_count += 1
+                statuses[i]['human_count'] = human_count
 
-            # Add detections
-            # TODO: Do not add detections of cars with "matches" or w/e attribute 
-            # it was. Thi sdetection is believed to be an existing agent, and should not 
-            # affect statistics.
-            for detection in agent_data['detected']:
-                detection_type = detection[5]
-                if detection_type == "car":
-                    vehicle_count = statuses[intersection_id]['car_count']
-                    vehicle_count += 1
-                    statuses[intersection_id]['car_count'] = vehicle_count
-                else: # Assume human
-                    human_count = statuses[intersection_id]['human_count']
-                    human_count += 1
-                    statuses[intersection_id]['human_count'] = human_count
 
         # Revise the status.
-        for _, intersection in statuses.items():
+        for intersection in statuses:
             car_count = intersection['car_count']
 
             # If car count is 0, the intersection status does not need to be updated.
@@ -267,20 +288,25 @@ class Processor():
         # TODO: If this is moved inside the loop, nothing should break?
         detected_agents = {}
         while True:
+            # Convert all yolo detections to DetectedAgent
+            # TODO: Couldn't this just be handled inside self.process?
             for agent in self.data_pipe:
-                results = self.process_agent_data(self.data_pipe[agent])
+                results = self.process_agent(self.data_pipe[agent])
                 detected_agents[agent] = results
 
-            # Processed_agents contains all agents and their detections processed.
+            # Processed_agents contains all agents and detections processed.
             # This is essentially the "3D" world. This object is what will be
             # used for final analysis and processing.
-            processed_agents = self.process(detected_agents)
+            processed_agents = self.process_all(detected_agents)
 
             # Most of the actual analysis happens here to understand the 3D world
             world: World = self.analyze(processed_agents)
 
             # Store the results, which will be saved under results/results.json
-            self.result_storage_pipe['processing_results'].append(world)
+            self.result_storage_pipe['processing_results'][
+                'agents'].extend(world['agents'])
+            self.result_storage_pipe['processing_results'][
+                'intersection_statuses'].extend(world['intersection_statuses'])
 
             yield self.env.timeout(1)
         

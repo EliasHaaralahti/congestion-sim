@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import json
 
 
 @dataclass
@@ -7,12 +8,19 @@ class DetectionData:
     Data class for describing a bounding box detection
     produced by the model.
     """
-    id: str # Identifies separate detectors at a single timestep.
+    # Combination of parent and detection id at a single timestep 
+    # create a unique id for searching.
+    parent_id: str # Who detected the detection
+    detection_id: str # Identifies detections at a single timestep.
     type: str # Class/type of detection
     xmin: float # Width of the bounding box
     xmax: float # Height of the bounding box
     ymin: float # box x coordinate in the image
     ymax: float # Box y coordinate in the image
+
+    def to_json(self):
+        return json.dumps(self, default=lambda o: o.__dict__, 
+            sort_keys=True, indent=1)
 
 
 @dataclass
