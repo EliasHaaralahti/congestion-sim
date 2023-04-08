@@ -20,13 +20,15 @@ class Processor():
         self.result_storage_pipe = result_storage_pipe
         self.dataloader = dataloader
 
-        # Congestion thresholds as defined in the report.
-        self.threshold_congestigation_medium = 5
-        self.threshold_congestigation_high = 10
-        # meters, how far detections are assumed to be agents.
+        image_width, image_height = dataloader.get_image_dimensions()
+        self.image_width = image_width
+        self.image_height = image_height
+
+        # Meters, how far detections are assumed to be existing agents.
         self.threshold_detection_radius = 2
         self.threshold_congestigation_speed = 12 # km/h
         # meters, how far away from intersection to be counted as part of intersection
+        # Binary classification (congested or not) is performed based on average speed.
         self.threshold_within_intersection_range = 50
         
 
@@ -64,14 +66,12 @@ class Processor():
     def process_detection(self, data: DetectionData) -> Tuple[float]:
         focal_length = 30
         height_in_frame = data.ymax - data.ymin
-        # TODO. TEMPORARY: Whole picture is 640x640. Get this data from somewhere.
-        image_width = 640
+        image_width = self.image_width
         box_width_center = data.xmin + ((data.xmax - data.xmin) / 2)
         fov_angle = 90 # Camera fov should be 90.
         real_height = 0
-        # TODO: YOLO uses car as detection, but elsewhere it can also be vehicle
-        # unify code by using car everywhere.
-        if data.type == "vehicle" or data.type == "car":
+
+        if data.type == "car":
             real_height = 1500
         elif data.type == "person":
             real_height = 1700
@@ -135,10 +135,6 @@ class Processor():
                             for each agent. 
         Returns a list of processed nodes
         """
-        # Dict of agents with fields x,y,direction and detected,
-        # which is array of arrays [[x,y]]
-        # TODO Depricated. Instead add all to a list.
-        #processed_agents = {'agents': {}}
         processed_agents = {'agents': []}
         # Detections is a dict of agents with value list of detections.
         for agent_name in detections:
@@ -169,12 +165,8 @@ class Processor():
                 # in visualization! Added to label to target matches_agent to allow filtering.
                 if crashing:
                     any_detection_crashing = True
-                # TODO: Depricated code. Remove when new works.
-                #processed_agents['agents'][agent_name]['detected'].append( target )
-                # Now detections are also handled as agents. Detected attribute 
-                # tells if the agent is already known or detected.
                 # TODO: Combine these dicts to a new datatype. Or use existing.
-                # TODO: Try to combine existing data types. Less is better.
+                # Try to combine existing data types. Less is better.
                 processed_agents['agents'].append({
                     'id': detection.id,
                     'x': target_x,
@@ -190,7 +182,8 @@ class Processor():
                 })
 
                 # Then add the original agent too.
-                # TODO: Using same intersection for node and detections. This may be false.
+                # NOTE: Using same intersection for node and detections. In many cases 
+                # this may be not desired.
                 agent_type = "rsu" if state.is_rsu else "vehicle"
                 processed_agents['agents'].append({
                     'id': state.node_id,
@@ -226,9 +219,8 @@ class Processor():
                 "timestep": self.env.now
             })
 
-            # Loop each agent in the scene (cars, RSUs...). Note agents also 
+            # Loop each agent in the scene (cars, RSUs...). Note agents also
             # include detections, which have been converted to agents.
-            #print(world['agents'])
             for agent_data in world['agents']:
                 agent_intersection: Intersection = agent_data['intersection']
 
@@ -262,20 +254,11 @@ class Processor():
             if car_count == 0:
                 continue
 
-            human_count = intersection['human_count']
-            # Total count tries to reflect the fact that cars are more likely
-            # to cause congestion than humans, which may not cross the roads.
-            total_count = car_count + (human_count / 3)
-            # calculate average speed and convert m/s to km/h
+            # Calculate average speed and convert m/s to km/h
             average_speed = (sum(intersection['speeds']) / len(intersection['speeds'])) * 3.6
-            
-            # Compare average speed to speed threshold.
-            speed_too_low = (average_speed) <= self.threshold_congestigation_speed
-            # Congestion is low by default. See if high/medium conditions met.
-            if total_count >= self.threshold_congestigation_high and speed_too_low:
-                intersection['status'] = "high"
-            elif total_count >= self.threshold_congestigation_medium and speed_too_low:
-                intersection['status'] = "medium"
+            # Congestion is low by default. See if condition for high met.
+            if average_speed < self.threshold_congestigation_speed:
+                intersection['status'] = "congested"
 
         return statuses
 
@@ -291,11 +274,11 @@ class Processor():
         Dictionary to hold new detected 'agents' for each actual node.
         Dictionary key corresponds to node that detected the agent.
         """
+        processed_detections = {}
         while True:
             # Convert all yolo detections to DetectedAgent. These are used 
             # later to find possible new detected vehicles and convert them 
             # into "agents".
-            processed_detections = {}
             for agent in self.data_pipe:
                 results = self.process_detections(self.data_pipe[agent])
                 processed_detections[agent] = results
