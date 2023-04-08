@@ -26,7 +26,7 @@ class DataLoader():
         that occur in the current scene. This includes RSUs.
         """
         return list(self.h5file['sensors'].keys())
-    
+
     def get_intersections(self) -> list[object]:
         """
         Read intersection metadata to get the 
@@ -43,16 +43,15 @@ class DataLoader():
         data = self.h5file.get("sensors/", 'r')
         return len(data[list(data)[0]])
 
-    def read_images(self, agent: str, simulation_step: int) -> ndarray:
+    def read_images(self, agent_name: str, simulation_step: int) -> ndarray:
         """
         Returns entity camera photo at simulation step
         """
-        frames = self.h5file.get(f'sensors/{agent}', 'r')
+        frames = self.h5file.get(f'sensors/{agent_name}', 'r')
         frame = frames[simulation_step]
         img = Image.open(io.BytesIO(frame))
         img_data = asarray(img)
-        # BGR -> RGB
-        return img_data[:,:,::-1]
+        return img_data
 
     def get_metadata_summary(self):
         """
@@ -87,7 +86,8 @@ class DataLoader():
 
     def read_entity_state(self, entity: str, simulation_step: int) -> EntityState:
         """
-        Returns entity state at simulation step for a vehicle. Note RSUs do not have state.
+        Returns entity state at simulation step for a vehicle. 
+        Note RSUs do not have state.
         """
         entity_vehicle = entity.replace('camera_', 'vehicle_')
         
