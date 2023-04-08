@@ -64,12 +64,14 @@ class Processor():
     def process_detection(self, data: DetectionData) -> Tuple[float]:
         focal_length = 30
         height_in_frame = data.ymax - data.ymin
-        # TEMPORARY: Whole picture is 640x640. Get this data from somewhere.
+        # TODO. TEMPORARY: Whole picture is 640x640. Get this data from somewhere.
         image_width = 640
         box_width_center = data.xmin + ((data.xmax - data.xmin) / 2)
         fov_angle = 90 # Camera fov should be 90.
         real_height = 0
-        if data.type == "vehicle":
+        # TODO: YOLO uses car as detection, but elsewhere it can also be vehicle
+        # unify code by using car everywhere.
+        if data.type == "vehicle" or data.type == "car":
             real_height = 1500
         elif data.type == "person":
             real_height = 1700
@@ -81,7 +83,7 @@ class Processor():
         id = f"{data.parent_id}-{data.detection_id}" 
         return DetectedEntityState(id, data.type, distance, width_offset)
 
-    def process_agent(self, data: OutputSummary) -> dict:
+    def process_detections(self, data: OutputSummary) -> dict:
         detections: List[DetectionData] = data.detections
         processed_detections = []
         for detection in detections:
@@ -220,35 +222,36 @@ class Processor():
                 'human_count': 0,
                 'rsu_count': 0,
                 'speeds': [], # in m/s
-                'status': "low" 
+                'status': "low",
+                "timestep": self.env.now
             })
 
-        # Loop each agent in the scene (cars, RSUs...). Note agents also 
-        # include detections, which have been converted to agents.
-        #print(world['agents'])
-        for agent_data in world['agents']:
-            agent_intersection: Intersection = agent_data['intersection']
+            # Loop each agent in the scene (cars, RSUs...). Note agents also 
+            # include detections, which have been converted to agents.
+            #print(world['agents'])
+            for agent_data in world['agents']:
+                agent_intersection: Intersection = agent_data['intersection']
 
-            # Agent is not currently part of any intersection
-            if agent_intersection is None:
-                continue
-                
-            # Add agent if not rsu. Rsus do not add
-            if agent_data['type'] == "rsu":
-                rsu_count = statuses[i]['rsu_count']
-                rsu_count += 1
-                statuses[i]['rsu_count'] = rsu_count
-            elif agent_data['type'] == "vehicle":
-                vehicle_count = statuses[i]['car_count']
-                vehicle_count += 1
-                statuses[i]['car_count'] = vehicle_count
-                # add speed to speeds for congestion analysis.
-                velocity = agent_data['velocity']
-                statuses[i]['speeds'].append(velocity)
-            else: # pedestrian
-                human_count = statuses[i]['human_count']
-                human_count += 1
-                statuses[i]['human_count'] = human_count
+                # Agent is not currently part of any intersection
+                if agent_intersection is None:
+                    continue
+                    
+                # Add agent if not rsu. Rsus do not add
+                if agent_data['type'] == "rsu":
+                    rsu_count = statuses[i]['rsu_count']
+                    rsu_count += 1
+                    statuses[i]['rsu_count'] = rsu_count
+                elif agent_data['type'] == "vehicle":
+                    vehicle_count = statuses[i]['car_count']
+                    vehicle_count += 1
+                    statuses[i]['car_count'] = vehicle_count
+                    # add speed to speeds for congestion analysis.
+                    velocity = agent_data['velocity']
+                    statuses[i]['speeds'].append(velocity)
+                else: # pedestrian
+                    human_count = statuses[i]['human_count']
+                    human_count += 1
+                    statuses[i]['human_count'] = human_count
 
 
         # Revise the status.
@@ -277,6 +280,9 @@ class Processor():
         return statuses
 
     def analyze(self, world: World):
+        """
+        Perform analysis on the processed "world"
+        """
         world['intersection_statuses'] = self.get_intersection_statuses(world)
         return world
 
@@ -285,19 +291,19 @@ class Processor():
         Dictionary to hold new detected 'agents' for each actual node.
         Dictionary key corresponds to node that detected the agent.
         """
-        # TODO: If this is moved inside the loop, nothing should break?
-        detected_agents = {}
         while True:
-            # Convert all yolo detections to DetectedAgent
-            # TODO: Couldn't this just be handled inside self.process?
+            # Convert all yolo detections to DetectedAgent. These are used 
+            # later to find possible new detected vehicles and convert them 
+            # into "agents".
+            processed_detections = {}
             for agent in self.data_pipe:
-                results = self.process_agent(self.data_pipe[agent])
-                detected_agents[agent] = results
+                results = self.process_detections(self.data_pipe[agent])
+                processed_detections[agent] = results
 
             # Processed_agents contains all agents and detections processed.
             # This is essentially the "3D" world. This object is what will be
             # used for final analysis and processing.
-            processed_agents = self.process_all(detected_agents)
+            processed_agents = self.process_all(processed_detections)
 
             # Most of the actual analysis happens here to understand the 3D world
             world: World = self.analyze(processed_agents)
@@ -308,5 +314,6 @@ class Processor():
             self.result_storage_pipe['processing_results'][
                 'intersection_statuses'].extend(world['intersection_statuses'])
 
+            # Process the simulation by one step for this processor.
             yield self.env.timeout(1)
         
