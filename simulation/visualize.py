@@ -28,11 +28,13 @@ def read_data(results_path, yolo_path):
 results_path = os.path.join("results", RUN_FOLDER)
 simulation_results_path = os.path.join(results_path, "results.json")
 yolo_results_path = os.path.join(results_path, "yolo_results.json")
+# NOTE: Currently data searches to find corresponding timestep data is done 
+# many many times inside the visualization loop. If faster required, 
+# pre-process the data to the form data['agents'][timestep].
 data_results, data_yolo = read_data(simulation_results_path, yolo_results_path)
 
 dataloader = DataLoader(CARLA_RUN_NAME)
 max_timesteps = dataloader.get_simulation_length()
-#data_results, data_yolo = convert_data(data_results, data_yolo, max_timesteps)
 metadata_summary = dataloader.get_metadata_summary()
 agents = dataloader.get_entity_ids()
 x_waypoints, y_waypoints = zip(*dataloader.get_map()) # List of (x,y).
@@ -41,7 +43,7 @@ x_waypoint_min, x_waypoint_max = min(x_waypoints), max(x_waypoints)
 y_waypoint_min, y_waypoint_max = min(x_waypoints), max(x_waypoints)
 
 agent_count = metadata_summary['n_vehicles']
-# TODO Currently only two cars supported!
+# NOTE Currently only two cars supported!
 view_car_indexes = [3, 5]
 
 
@@ -59,9 +61,8 @@ def render_visualization(interactive=False, skip_timesteps=0):
     while timestep <= max_timesteps - 1:
         fig, axes = plt.subplots(2, 2, figsize=(15, 15))
         fig.suptitle(f"Simulation timestep {timestep}")
-    
-        # TODO: Optimize and clean! Same loops essentially ran twice.
-        # Though it might be useful to keep it like that to ensure modularity.
+
+        #axes[1,1].legend()
         draw_car_views(view_car_indexes, axes, agents, data_results, data_yolo, 
                        timestep, dataloader)
         draw_information_view(axes[1,0], agent_count, data_results, timestep)
