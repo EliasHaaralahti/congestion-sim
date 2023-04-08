@@ -47,22 +47,6 @@ def draw_information_view(ax: Axes, agent_count, data: World, timestep):
         
         text_y -= (text_y_decrease * 6)
 
-def convert_data(data_results, data_yolo):
-    """ 
-    Convert the data from being just rows, where one 
-    column value indicates the timestep, to array where 
-    the index is the timestep. Faster to access the data 
-    during the visualization loop. IE agents[timestep] 
-    returns a list of agents in that timestep.
-    """
-    agents = []
-    # TODO: If this is not used in the final product, delete.
-    #print("TEST CONVER")
-    #print(data_results.keys())
-    #print(len(data_results['agents']))
-    #print(data_results['agents'][0])
-    return None
-
 
 def draw_car_views(car_indexes,
     axes: Axes, agent_names, data_results, data_yolo, timestep, dataloader):
@@ -152,11 +136,7 @@ def draw_map(ax: Axes, waypoints: List[Tuple], agents, data, timestep):
         # Rotation difference between CARLA (unit circle -> right = angle 0)
         # Matplotlib 0 angle = up. -90 to compensate. Additionally since the
         # y-axis is flipped, need to account for that too with calculate_angle_y_flip.
-        # TODO: The current marker is set to be at default 0 degrees = right. No need to compensate.
-        #rotation_adjusted = calculate_angle_y_flip(agent_data['direction']) - 90
         rotation_adjusted = calculate_angle_y_flip(agent['direction'])
-        #m = MarkerStyle(6)
-        #m._transform.rotate_deg(rotation_adjusted)
         agent_marker = car_marker.transformed(
             mpl.transforms.Affine2D().rotate_deg(rotation_adjusted))
         
