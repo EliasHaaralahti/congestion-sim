@@ -53,6 +53,10 @@ class DataLoader():
         img_data = asarray(img)
         return img_data
 
+    def get_image_dimensions(self):
+        metadata = self.get_metadata_summary()
+        return metadata['img_width'], metadata['img_height']
+
     def get_metadata_summary(self):
         """
         Summary for visualization of scene metadata
@@ -69,6 +73,8 @@ class DataLoader():
             "fps": data['fps'],
             "n_vehicles": data['n_vehicles'],
             "n_sensors": data['n_sensors'],
+            "img_width": data['img_width'],
+            "img_height": data['img_height']
         }
         return metadata_summary
 
