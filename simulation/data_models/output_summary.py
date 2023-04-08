@@ -17,6 +17,7 @@ class DetectionData:
     xmax: float # Height of the bounding box
     ymin: float # box x coordinate in the image
     ymax: float # Box y coordinate in the image
+    timestep: int
 
     def to_json(self):
         return json.dumps(self, default=lambda o: o.__dict__, 
@@ -35,3 +36,4 @@ class OutputSummary:
     direction: float
     velocity: float
     detections: list[DetectionData] # Cars detected by yolo
+    timestep: int
