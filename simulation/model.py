@@ -5,9 +5,8 @@ https://pytorch.org/hub/ultralytics_yolov5/
 import numpy as np
 import torch
 
-
-# TODO: To fix the current issue where the input image is of wrong type
-# https://github.com/ultralytics/yolov5/issues/36 detailed version could work.
+# Relevant documentation: https://github.com/ultralytics/yolov5/issues/36
+# Such as running on cpu/cuda with model.cpu() / model.cuda()
 
 models = {
     "nano": "yolov5x",
