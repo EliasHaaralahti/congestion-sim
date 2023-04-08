@@ -19,7 +19,6 @@ class Node():
         self.node_id: str = node_id
         self.dataloader: DataLoader = dataloader
         self.model: Model = model
-        # For now store model output for later processing here
         self.data_pipe = data_pipe
         self.result_storage_pipe = result_storage_pipe
 
@@ -48,14 +47,11 @@ class Node():
         detections: List[OutputSummary] = []
         for i, row in pandas_yolo_results.iterrows():
             if row['name'] == 'car' or row['name'] == 'person':
-
-                # Filter out matches where the car detects itself by not taking
-                # Get about 1/3 of image bottom size
-                ymin_max = im_shape[0] / 1.6
-                # Get about 1/6 of the bottom of the image size
-                ymax_max = im_shape[0] / 16
-
-                if row['name'] == 'car':
+                # Filter out matches where the car detects itself
+                # Limit bottom of the view IF not rsu and detection is car.
+                if not state.is_rsu and row['name'] == 'car':
+                    ymin_max = im_shape[0] / 1.6
+                    ymax_max = im_shape[0] / 16
                     if row['ymin'] > ymin_max and row['ymax'] > ymax_max:
                         continue
 
@@ -66,7 +62,8 @@ class Node():
                     xmin=row['xmin'],
                     xmax=row['xmax'],
                     ymin=row['ymin'],
-                    ymax=row['ymax']
+                    ymax=row['ymax'],
+                    timestep=self.env.now
                 )
                 detections.append(detection)
 
@@ -77,7 +74,8 @@ class Node():
             agent_y=state.y,
             direction=state.direction,
             velocity=state.velocity,
-            detections=detections
+            detections=detections,
+            timestep=self.env.now
         )
         return output
 
