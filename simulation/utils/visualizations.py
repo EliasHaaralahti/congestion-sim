@@ -1,3 +1,4 @@
+import math
 from matplotlib.path import Path
 from matplotlib.pyplot import Axes
 from typing import List, Tuple
@@ -12,61 +13,90 @@ COLOR_MAP = plt.get_cmap('viridis')
 
 
 def draw_information_view(ax: Axes, agent_count, data: World, timestep):
-    timestep_data = data['processing_results'][timestep]
+    data = [
+        d for d in data['intersection_statuses'] if d['timestep'] == timestep]
 
-    ax.set_title("Intersections")
+    ax.set_title("Analysis results")
 
+    # Variables to keep track where text is placed currently
+    text_x, text_y = 0.01, 0.93
+    text_y_decrease = 0.08
+    text_color = "black"
     # Loop over intersections
-    for id, intersection in timestep_data['intersection_statuses'].items():
+    for intersection in data:
+        intersection_id = intersection['id']
         status = intersection['status']
         car_count = intersection['car_count']
         human_count = intersection['human_count']
         rsu_count = intersection['rsu_count']
-
-        ax.text(0.01, 0.93, f"Agents in intersection {id}: {agent_count}", 
-                size=15, color='black')
-        ax.text(0.01, 0.85, 
-                f"Total cars (agents + detections): {car_count}", 
-                size=15, color='black')
-        ax.text(0.01, 0.77, f"Total humans: {human_count}", 
-                size=15, color='black')
-        ax.text(0.01, 0.69, f"RSUs in intersection: {rsu_count}", 
-                size=15, color='black')
-        ax.text(0.01, 0.61-0.08, f"Intersection status: {status}", 
-                size=15, color='black')
         
-        break # TODO Temp loop only once, later need to find places for labels...
+        # ax.text(x,y) where 0,0 is 0,1 is top left corner.
+        ax.text(text_x, text_y, f"Intersection: {intersection_id}:", 
+                size=15, color=text_color)
+        ax.text(text_x, text_y - text_y_decrease, f"Total cars: {car_count}", 
+                size=12, color=text_color)
+        ax.text(text_x, text_y - (text_y_decrease * 2), 
+                f"Total humans: {human_count}", 
+                size=12, color=text_color)
+        ax.text(text_x, text_y - (text_y_decrease * 3), 
+                f"RSUs in intersection: {rsu_count}", 
+                size=12, color=text_color)
+        ax.text(text_x, text_y - (text_y_decrease * 4),
+                f"Intersection status: {status}", 
+                size=12, color=text_color)
+        
+        text_y -= (text_y_decrease * 6)
+
+def convert_data(data_results, data_yolo):
+    """ 
+    Convert the data from being just rows, where one 
+    column value indicates the timestep, to array where 
+    the index is the timestep. Faster to access the data 
+    during the visualization loop. IE agents[timestep] 
+    returns a list of agents in that timestep.
+    """
+    agents = []
+    # TODO: If this is not used in the final product, delete.
+    #print("TEST CONVER")
+    #print(data_results.keys())
+    #print(len(data_results['agents']))
+    #print(data_results['agents'][0])
+    return None
 
 
-def draw_car_views(axes: Axes, agents, data, timestep, dataloader):
-    for i, agent in enumerate(agents):
-        # limit to two first results for now TODO
-        if i == 2:
-            break
-
-        agent_data = data['processing_results'][timestep]['agents'][agent]
-        image = dataloader.read_images(agent, timestep)
-        # Draw the yolo detection
-        yolo_bounds = data['yolo_images'][agent][timestep]
+def draw_car_views(car_indexes,
+    axes: Axes, agent_names, data_results, data_yolo, timestep, dataloader):
+    for i, car_index in enumerate(car_indexes):
+        agent_name = agent_names[car_index]
+    
+        all_agents_timestep = [
+            d for d in data_results['agents'] if d['timestep'] == timestep]
+        #all_agent_ids = [
+        #    d['id'] for d in data_results['agents'] if d['timestep'] == timestep]
+        agent_data = next((d for d in all_agents_timestep if d['id'] == 
+                      agent_name and d.get('timestep') == timestep), None)
+        images = dataloader.read_images(agent_name, timestep)
         velocity = agent_data['velocity']
-        total_agents = len(agents)
+        total_agents = len(agent_names)
         colors = [COLOR_MAP(1.*i/total_agents) for i in range(total_agents)]
         axes[0, i].set_title(
-            f"Agent ID: {agent}, Color: {colors[i]}, Velocity: {velocity:.1f}m/s")
-        axes[0, i].imshow(image)
+            f"Agent ID: {agent_name}, Color: {colors[i]}, Velocity: {velocity:.1f}m/s")
+        axes[0, i].imshow(images)
 
-        for bounds in yolo_bounds:
-            # -1 -> No detection
-            if -1 in bounds:
-                continue
-                
+        # Draw the yolo detections
+        yolo_bounds = [
+            d for d in data_yolo if d['parent_id'] == agent_name and
+            d['timestep'] == timestep]
+
+        for bound in yolo_bounds:                
             # Draw the border
-            id = bounds[0]
-            type = bounds[1]
-            x_min = bounds[2]
-            x_max = bounds[3]
-            y_min = bounds[4]
-            y_max = bounds[5]
+            detection_id = bound["detection_id"]
+            parent_id = bound['parent_id']
+            type = bound["type"]
+            x_min = bound["xmin"]
+            x_max = bound["xmax"]
+            y_min = bound["ymin"]
+            y_max = bound["ymax"]
             height = y_max - y_min
             width = x_max - x_min
 
@@ -75,63 +105,56 @@ def draw_car_views(axes: Axes, agents, data, timestep, dataloader):
                                     edgecolor='r', facecolor='none')
             axes[0, i].add_patch(rect)
 
-            # Find distance to current agent using bounds id and detection id
-            print("HMM")
-            print(agent_data['detected'])
-            print("with id: " + str(id))
+            # Find the parent of the detection (ie the agent itself)
+            detection_agent = None          
+            for agent in all_agents_timestep:
+                # Only process detected agents.
+                if not agent['detected']:
+                    continue
 
-            # Find the detected agent state, such as distance
-            matching_detection = None
-            print("All detections: ")
-            print(agent_data['detected'])
-            
-            """
-            for detection in agent_data['detected']:
-                # id is in form <number>-camera_<number>. Match only camera_<number>.
-                det_id = detection[4]
-                actual_det_id = det_id.partition("-")[2]
-                actual_id = id.partition("-")[2]
-                print(f"Comparing ids {actual_id} and {actual_det_id}")
-                if actual_det_id == actual_id:
-                    matching_detection = detection
-            """
+                det_id = agent['id']
+                detection_parent_id = f"{parent_id}-{detection_id}"
+                if det_id == detection_parent_id:
+                    detection_agent = agent
+                    break
 
-            matching_detection = [
-                i for i in agent_data['detected'] if i[4]==id
-                ][0]
-
-            text = f"C: {type}, D: {matching_detection[5]:.1f}m"
+            parent_position = (detection_agent['x'], 
+                               detection_agent['y'])
+            agent_position = (agent_data['x'], agent_data['y'])
+            distance = math.dist(agent_position, parent_position) # meters
+            text = f"C: {type}, D: {distance:.1f}m"
             # if crashing
-            if matching_detection[2]: 
+            if detection_agent['crashing']: 
                 text += " - COLLISION WARNING"
             axes[0, i].text(
                 x_min, y_min-10, text, size=13, color='white',
                 path_effects=[pe.withStroke(linewidth=2, foreground="black")])
 
 
-def draw_map(ax: Axes, waypoints: Tuple, agents, data, timestep):
+def draw_map(ax: Axes, waypoints: List[Tuple], agents, data, timestep):
     """
     Draw the top-view map visualization and markers for cars and humans.
     """
     x_waypoints, y_waypoints = waypoints
     human_marker, car_marker, rsu_marker = get_human_marker(), get_car_marker(), get_rsu_marker()
-    min_x, max_x, min_y, max_y = get_relevant_coordinates(
-            agents, timestep, data['processing_results'])
+    min_x, max_x, min_y, max_y = get_relevant_coordinates(data)
 
     ax.set_title("2D scene map")
     ax.scatter(x_waypoints, y_waypoints, c='k', s=1, zorder=0)
     ax.set_xlim([min_x-60, max_x+60])
     ax.set_ylim([min_y-60, max_y+60])
 
-    total_agents = len(agents)
-    for i, agent in enumerate(agents):
-        agent_data = data['processing_results'][timestep]['agents'][agent]
+    timestep_agents = [
+        d for d in data['agents'] if d['timestep'] == timestep]
+
+    total_agents = len(timestep_agents)
+    for i, agent in enumerate(timestep_agents):
         # Rotation difference between CARLA (unit circle -> right = angle 0)
         # Matplotlib 0 angle = up. -90 to compensate. Additionally since the
         # y-axis is flipped, need to account for that too with calculate_angle_y_flip.
         # TODO: The current marker is set to be at default 0 degrees = right. No need to compensate.
         #rotation_adjusted = calculate_angle_y_flip(agent_data['direction']) - 90
-        rotation_adjusted = calculate_angle_y_flip(agent_data['direction'])
+        rotation_adjusted = calculate_angle_y_flip(agent['direction'])
         #m = MarkerStyle(6)
         #m._transform.rotate_deg(rotation_adjusted)
         agent_marker = car_marker.transformed(
@@ -144,56 +167,35 @@ def draw_map(ax: Axes, waypoints: Tuple, agents, data, timestep):
         # Draw markers on the map
         colors = [COLOR_MAP(1.*i/total_agents) for i in range(total_agents)]
 
-        if agent_data['is_rsu']: # Agent is RSU
+        if agent["type"] == 'is_rsu': # Agent is RSU
             ax.scatter(
-                agent_data['x'], agent_data['y'], color=colors[i], marker=rsu_marker_2, s=500)
+                agent['x'], agent['y'], color=colors[i], marker=rsu_marker_2, s=500)
+        if agent["type"] == 'person': # Agent is pedestrian
+             ax.scatter(agent['x'], agent['y'], marker=human_marker,
+                                color=colors[i], edgecolors="red", s=200)
         else: # Agent is vehicle
-            ax.scatter(
-                agent_data['x'], agent_data['y'], color=colors[i], marker=agent_marker, s=100)
-        
-        for detection in agent_data['detected']:
-            # If matches, the car matches to an existing agent.
-            x_det, y_det, crashing_det, distance_to_agent, id, distance, type, matches = detection
-            color = "red" if crashing_det else "black"
-
-            if type == "car": # car
-                ax.scatter(x_det, y_det, color=colors[i], edgecolors=color)
-            else: # human
-                ax.scatter(x_det, y_det, marker=human_marker,
-                                color=colors[i], edgecolors=color, s=200)
-            
+            if agent['detected']: # The vehicle was detected, draw circle.
+                ax.scatter(agent['x'], agent['y'], color=colors[i], 
+                           edgecolors="red")
+            else: # Agent is "known".
+                ax.scatter(agent['x'], agent['y'], color=colors[i], 
+                           marker=agent_marker, s=100)
+    
     # Rotate Y axis since CARLA Y axis is "upside down".
     ax.set_ylim(ax.get_ylim()[::-1])
 
 
-def get_relevant_coordinates(agents: List[str], step: int, processed: object):
+def get_relevant_coordinates(processed: object):
     """
     Find min and max values for both x and y coordinates for each agent
     and detected entity. Used for scaling the visualization.
     """
-
-    # TODO: What is this. Clean and use actual sim length.
-    #   -> This was a trick to instead get min and max coordinates over
-    #       all steps. Constant jumping in a video looks bad. Need to decide
-    #       how this should be in the future.
-    # TEMP: ignore step. Check all timesteps
-    sim_length = 700 - 1
-
+    agent_states = processed['agents']
     x_coords = []
     y_coords = []
-    for sim_step in range(sim_length):
-        coordinates = []
-        for a in agents:
-            a_state = processed[sim_step]['agents'][a]
-            coordinates.append( (a_state['x'], a_state['y']) )
-            for d in a_state['detected']:
-                coordinates.append( (d[0], d[1]) )
-
-        x, y = zip(*coordinates)
-        x_coords.append(min(x))
-        x_coords.append(max(x))
-        y_coords.append(min(y))
-        y_coords.append(max(y))
+    for agent in agent_states: 
+        x_coords.append(agent['x'])
+        y_coords.append(agent['y'])
 
     return (min(x_coords), max(x_coords), min(y_coords), max(y_coords))
 

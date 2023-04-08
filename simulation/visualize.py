@@ -4,16 +4,35 @@ import matplotlib.pyplot as plt
 from data import DataLoader
 from utils.visualizations import *
 
-IS_INTERACTIVE = True
-SKIP_TIMESTEPS = 30
 
-RESULTS_FILE = "results.json"
-path = os.path.join('results', RESULTS_FILE)
+# Change depending in your needs
+CARLA_RUN_NAME = "intersection_5_vehicles.hdf5"
+RUN_FOLDER = "medium-intersection_5_vehicles.hdf5-rsu_used_True-1680983400"
+IS_INTERACTIVE = True # False creates a video
+SKIP_TIMESTEPS = 50
 
-with open(path) as json_file:
-    data = json.load(json_file)
 
-dataloader = DataLoader()
+def read_data(results_path, yolo_path):
+    with open(results_path) as json_file:
+        data_results = json.load(json_file)
+
+    with open(yolo_path) as yolo_file:
+        data_yolo = json.load(yolo_file)
+        # Convert the items in the list back to dicts (from str)
+        for i in range(len(data_yolo)):
+            data_yolo[i] = json.loads(data_yolo[i])
+    
+    return data_results, data_yolo
+
+
+results_path = os.path.join("results", RUN_FOLDER)
+simulation_results_path = os.path.join(results_path, "results.json")
+yolo_results_path = os.path.join(results_path, "yolo_results.json")
+data_results, data_yolo = read_data(simulation_results_path, yolo_results_path)
+
+dataloader = DataLoader(CARLA_RUN_NAME)
+max_timesteps = dataloader.get_simulation_length()
+#data_results, data_yolo = convert_data(data_results, data_yolo, max_timesteps)
 metadata_summary = dataloader.get_metadata_summary()
 agents = dataloader.get_entity_ids()
 x_waypoints, y_waypoints = zip(*dataloader.get_map()) # List of (x,y).
@@ -22,6 +41,8 @@ x_waypoint_min, x_waypoint_max = min(x_waypoints), max(x_waypoints)
 y_waypoint_min, y_waypoint_max = min(x_waypoints), max(x_waypoints)
 
 agent_count = metadata_summary['n_vehicles']
+# TODO Currently only two cars supported!
+view_car_indexes = [3, 5]
 
 
 def render_visualization(interactive=False, skip_timesteps=0):
@@ -41,9 +62,10 @@ def render_visualization(interactive=False, skip_timesteps=0):
     
         # TODO: Optimize and clean! Same loops essentially ran twice.
         # Though it might be useful to keep it like that to ensure modularity.
-        draw_car_views(axes, agents, data, timestep, dataloader)
-        draw_information_view(axes[1,0], agent_count, data, timestep)
-        draw_map(axes[1,1], waypoints, agents, data, timestep)
+        draw_car_views(view_car_indexes, axes, agents, data_results, data_yolo, 
+                       timestep, dataloader)
+        draw_information_view(axes[1,0], agent_count, data_results, timestep)
+        draw_map(axes[1,1], waypoints, agents, data_results, timestep)
         
         mng = plt.get_current_fig_manager()
         mng.full_screen_toggle()
