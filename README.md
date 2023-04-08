@@ -46,4 +46,5 @@
 
 ### Elias
 
-- Discrete-event simulation
+- Building the discrete-event simulation, object detection and congestion analysis.
+- Building visualization tools for the DES results.
