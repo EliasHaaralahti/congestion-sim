@@ -7,13 +7,15 @@ import matplotlib.patheffects as pe
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 from data_models.world import World
+from data import DataLoader
 
 
 COLOR_MAP = plt.get_cmap('viridis')
 
 
-def draw_information_view(ax: Axes, agent_count, data: World, timestep):
-    data = [
+def draw_information_view(ax: Axes, agent_count, data: World, timestep: int, 
+                          dataloader: DataLoader):
+    intersections = [
         d for d in data['intersection_statuses'] if d['timestep'] == timestep]
 
     ax.set_title("Analysis results")
@@ -22,35 +24,65 @@ def draw_information_view(ax: Axes, agent_count, data: World, timestep):
     text_x, text_y = 0.01, 0.93
     text_y_decrease = 0.08
     text_color = "black"
+
+    # Print ground truth information
+    metadata = dataloader.get_metadata_summary()
+    total_cars = metadata['n_vehicles']
+    total_pedestrians = metadata['n_pedestrians']
+    total_rsus = metadata['n_rsus']
+    ax.text(text_x, text_y, "Ground truth:", size=13, color=text_color)
+    text_y -= text_y_decrease
+    ax.text(text_x, text_y, f"Total cars {total_cars}:", size=10, color=text_color)
+    text_y -= text_y_decrease
+    ax.text(text_x, text_y, f"Total pedestrians: {total_pedestrians}", size=10, color=text_color)
+    text_y -= text_y_decrease
+    ax.text(text_x, text_y, f"Total RSUs: {total_rsus}", size=10, color=text_color)
+    text_y -= text_y_decrease
+
+    text_x += 0.4
+    text_y = 0.93
+
     # Loop over intersections
-    for intersection in data:
+    for intersection in intersections:
         intersection_id = intersection['id']
         status = intersection['status']
         car_count = intersection['car_count']
         human_count = intersection['human_count']
-        rsu_count = intersection['rsu_count']
+        speeds = intersection['speeds']
+        # TODO: Same calculation performed in processor.py
+        # just store result there?
+        if len(speeds) == 0:
+            average_speed = 0
+        else:
+            average_speed = (sum(speeds) / len(speeds)) * 3.6 # km/h
         
         # ax.text(x,y) where 0,0 is 0,1 is top left corner.
-        ax.text(text_x, text_y, f"Intersection: {intersection_id}:", 
-                size=15, color=text_color)
+        intersection_id_number = intersection_id.split('_')[1]
+        ax.text(text_x, text_y, f"Intersection {intersection_id_number} result:", 
+                size=13, color=text_color)
         ax.text(text_x, text_y - text_y_decrease, f"Total cars: {car_count}", 
-                size=12, color=text_color)
+                size=10, color=text_color)
         ax.text(text_x, text_y - (text_y_decrease * 2), 
                 f"Total humans: {human_count}", 
-                size=12, color=text_color)
+                size=10, color=text_color)
         ax.text(text_x, text_y - (text_y_decrease * 3), 
-                f"RSUs in intersection: {rsu_count}", 
-                size=12, color=text_color)
+                f"Average speed: {round(average_speed, 1)} km/h", 
+                size=10, color=text_color)
         ax.text(text_x, text_y - (text_y_decrease * 4),
-                f"Intersection status: {status}", 
-                size=12, color=text_color)
-        
+                f"Congestion status: {status}", 
+                size=10, color=text_color)
+
         text_y -= (text_y_decrease * 6)
 
 
-def draw_car_views(car_indexes,
-    axes: Axes, agent_names, data_results, data_yolo, timestep, dataloader):
+def draw_car_views(car_indexes, ax_names, axes: Axes, agent_names, 
+                   data_results, data_yolo, timestep, dataloader):
+    
     for i, car_index in enumerate(car_indexes):
+        # List to keep count of label y coordinates.
+        # This is an attempt to have less overlapping of labels.
+        labels_y_coords = []
+
         agent_name = agent_names[car_index]
     
         all_agents_timestep = [
@@ -60,12 +92,19 @@ def draw_car_views(car_indexes,
         agent_data = next((d for d in all_agents_timestep if d['id'] == 
                       agent_name and d.get('timestep') == timestep), None)
         images = dataloader.read_images(agent_name, timestep)
-        velocity = agent_data['velocity']
+        # TODO: Error: Sometimes the agent data seems to disappear??
+        # thus velocity is not available only in this part. The other parts 
+        # work. This is a silent fix.
+        # Later noted: This may be for RSUs only, in which case velocity=0
+        if agent_data is None:
+            velocity = -1
+        else:
+            velocity = agent_data['velocity']
         total_agents = len(agent_names)
         colors = [COLOR_MAP(1.*i/total_agents) for i in range(total_agents)]
-        axes[0, i].set_title(
-            f"Agent ID: {agent_name}, Color: {colors[i]}, Velocity: {velocity:.1f}m/s")
-        axes[0, i].imshow(images)
+        axes[ax_names[i]].set_title(
+            f"Car ID: {agent_name}\nColor: {colors[i]}\nVelocity: {velocity:.1f}m/s")
+        axes[ax_names[i]].imshow(images)
 
         # Draw the yolo detections
         yolo_bounds = [
@@ -87,7 +126,7 @@ def draw_car_views(car_indexes,
             # Rectangle(xy, width, height, ...
             rect = patches.Rectangle((x_min, y_min), width, height, linewidth=1,
                                     edgecolor='r', facecolor='none')
-            axes[0, i].add_patch(rect)
+            axes[ax_names[i]].add_patch(rect)
 
             # Find the parent of the detection (ie the agent itself)
             detection_agent = None          
@@ -110,10 +149,23 @@ def draw_car_views(car_indexes,
             # if crashing
             if detection_agent['crashing']: 
                 text += " - COLLISION WARNING"
-            axes[0, i].text(
-                x_min, y_min-10, text, size=13, color='white',
-                path_effects=[pe.withStroke(linewidth=2, foreground="black")])
 
+            label_y = y_min - 10
+            # If label with y coordinate close enough to current label_y
+            tolerance = 20
+            while True:
+                if any(abs(x - label_y) <= tolerance for x in labels_y_coords):
+                    label_y -= 40
+                    if label_y <= 0:
+                        label_y = 0
+                        break
+                else:
+                    break
+            axes[ax_names[i]].text(
+                x_min, label_y, text, size=12, color='white',
+                path_effects=[pe.withStroke(linewidth=2, foreground="black")])
+            
+            labels_y_coords.append(label_y)
 
 def draw_map(ax: Axes, waypoints: List[Tuple], agents, data, timestep):
     """
