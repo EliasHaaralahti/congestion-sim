@@ -72,6 +72,10 @@ class DataLoader():
             "n_frames": data['n_frames'],
             "fps": data['fps'],
             "n_vehicles": data['n_vehicles'],
+            "n_pedestrians": data['n_pedestrians'],
+            # Note: Assumes each car has one sensor and
+            # only cars and RSUs have cameras
+            "n_rsus": data['n_sensors'] - data['n_vehicles'],
             "n_sensors": data['n_sensors'],
             "img_width": data['img_width'],
             "img_height": data['img_height']
