@@ -1,5 +1,5 @@
 import math
-from typing import List, Tuple
+from typing import List, Tuple, Union
 from data_models.output_summary import OutputSummary, DetectionData
 from data_models.agent_state import DetectedEntityState
 from data_models.world import IntersectionStatus, World, Intersection
@@ -25,20 +25,25 @@ class Processor():
         self.image_height = image_height
 
         # Meters, how far detections are assumed to be existing agents.
-        self.threshold_detection_radius = 2
+        # These are pretty large to compensate the inaccuracy of distance detection.
+        self.threshold_detection_radius_car = 15 # meters
+        self.threshold_detection_radius_person = 6 # meters
         self.threshold_congestigation_speed = 12 # km/h
         # meters, how far away from intersection to be counted as part of intersection
         # Binary classification (congested or not) is performed based on average speed.
-        self.threshold_within_intersection_range = 50
+        self.threshold_within_intersection_range = 30 # meters
         
 
-    def get_distance(self, agent: OutputSummary, target: Tuple[int, int]) -> float:
+    def get_distance(self, agent: Union[OutputSummary, Tuple], target: Tuple[int, int]) -> float:
         """
         Calculate distance between agent and a target point (usually detection).
         Can be used in analysis to for example, calculate if potential for crash.
         """
-        agent_position = (agent.agent_x, agent.agent_y)
-        distance = math.dist(agent_position, target) # meters
+        if isinstance(agent, OutputSummary):
+            agent_position = (agent.agent_x, agent.agent_y)
+            distance = math.dist(agent_position, target) # meters
+        else: # Assume tuple
+            distance = math.dist(agent, target) # meters
         return distance
 
     def get_closest_intersection(self, agent: OutputSummary) -> object:
@@ -91,17 +96,35 @@ class Processor():
             processed_detections.append(detection_result)
         return processed_detections
     
-    def is_detection_another_agent(self, current_agent_name, agent_names, target_position):
-        for agent_name in agent_names:
+    def is_detection_another_agent(self, processed_agents, current_agent_name, 
+                                   target_position, target_type):
+        """
+        See if detection matches an agent or earlier detection during this timestep.
+        If two are close enough, assume same detection.
+        """
+        # Loop through detections, see if match found
+        for agent in processed_agents['agents']:
+            # Only process detected agents, as agents from data
+            # are always "real" and have not been detected multiple times.
+            if not agent['detected']:
+                return False
+            
             # Assume car does not detect itself.
-            if agent_name == current_agent_name:
+            if agent['id'] == current_agent_name:
                 continue
 
-            agent_state: OutputSummary = self.data_pipe[agent_name]
-            distance = self.get_distance(agent_state, target_position)
-            if distance <= self.threshold_detection_radius:
-                # Within threshold range, assume agent and detection are same.
-                return False
+            agent_position = (agent['x'], agent['y'])
+            distance = self.get_distance(agent_position, target_position)
+            # Within distance threshold
+            if target_type == "person":
+                threshold = self.threshold_detection_radius_person
+            else:
+                threshold = self.threshold_detection_radius_car
+
+            if distance <= threshold:
+                # Types are also same, assume object already detected.
+                if agent['type'] == target_type:
+                    return False
         return True
     
     def is_collision_warning(self, agent_state: OutputSummary, 
@@ -160,7 +183,9 @@ class Processor():
                 distance_to_agent, crashing = self.is_collision_warning(state, (target_x, target_y))
 
                 # Decide if detected target is a new target or an another agent.
-                matches_agent = self.is_detection_another_agent(agent_name, detections, (target_x, target_y))
+                # includes pedestrians.
+                matches_agent = self.is_detection_another_agent(processed_agents, 
+                    agent_name, (target_x, target_y), detection.type)
                 # The processed agents must still be kept, as needed for bounding box drawing 
                 # in visualization! Added to label to target matches_agent to allow filtering.
                 if crashing:
@@ -208,58 +233,56 @@ class Processor():
 
         # Initialize the dict with all intersections.
         intersections = self.dataloader.get_intersections()
-        for i, intersection in enumerate(intersections):
-            statuses.append({
+        for intersection in intersections:
+            intersection_stats = {
                 'id': intersection['id'],
                 'car_count': 0,
                 'human_count': 0,
-                'rsu_count': 0,
                 'speeds': [], # in m/s
                 'status': "low",
                 "timestep": self.env.now
-            })
+            }
 
             # Loop each agent in the scene (cars, RSUs...). Note agents also
             # include detections, which have been converted to agents.
             for agent_data in world['agents']:
                 agent_intersection: Intersection = agent_data['intersection']
-
-                # Agent is not currently part of any intersection
-                if agent_intersection is None:
+                # Agent is not currently part of any intersection or this
+                # intersection is not the one agent is in.
+                if (agent_intersection is None or
+                    agent_intersection['id'] != intersection['id']):
                     continue
-                    
+
+                # If agent matches existing agent, filter result
+                if agent_data['matches']:
+                    continue
+
                 # Add agent if not rsu. Rsus do not add
-                if agent_data['type'] == "rsu":
-                    rsu_count = statuses[i]['rsu_count']
-                    rsu_count += 1
-                    statuses[i]['rsu_count'] = rsu_count
-                elif agent_data['type'] == "vehicle":
-                    vehicle_count = statuses[i]['car_count']
+                if agent_data['type'] == "vehicle" or agent_data['type'] == "car":
+                    vehicle_count = intersection_stats['car_count']
                     vehicle_count += 1
-                    statuses[i]['car_count'] = vehicle_count
+                    intersection_stats['car_count'] = vehicle_count
                     # add speed to speeds for congestion analysis.
                     velocity = agent_data['velocity']
-                    statuses[i]['speeds'].append(velocity)
+                    intersection_stats['speeds'].append(velocity)
                 else: # pedestrian
-                    human_count = statuses[i]['human_count']
+                    human_count = intersection_stats['human_count']
                     human_count += 1
-                    statuses[i]['human_count'] = human_count
+                    intersection_stats['human_count'] = human_count
 
 
-        # Revise the status.
-        for intersection in statuses:
-            car_count = intersection['car_count']
-
+            # Revise intersection status now that entities have been counted.
+            car_count = intersection_stats['car_count']
             # If car count is 0, the intersection status does not need to be updated.
-            if car_count == 0:
-                continue
+            if car_count != 0:
+                # Calculate average speed and convert m/s to km/h
+                average_speed = (sum(intersection_stats['speeds']) /
+                                 len(intersection_stats['speeds'])) * 3.6
+                # Congestion is low by default. See if condition for high met.
+                if average_speed < self.threshold_congestigation_speed:
+                    intersection_stats['status'] = "congested"
 
-            # Calculate average speed and convert m/s to km/h
-            average_speed = (sum(intersection['speeds']) / len(intersection['speeds'])) * 3.6
-            # Congestion is low by default. See if condition for high met.
-            if average_speed < self.threshold_congestigation_speed:
-                intersection['status'] = "congested"
-
+            statuses.append(intersection_stats)
         return statuses
 
     def analyze(self, world: World):
