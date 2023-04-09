@@ -1,15 +1,13 @@
 import os
+import sys
 import json
+import getopt
 import matplotlib.pyplot as plt
 from data import DataLoader
 from utils.visualizations import *
 
 
-# Change depending in your needs
-CARLA_RUN_NAME = "intersection_5_vehicles.hdf5"
-RUN_FOLDER = "medium-intersection_5_vehicles.hdf5-rsu_used_True-1681038881"
-IS_INTERACTIVE = False # False creates a video
-SKIP_TIMESTEPS = 50
+folder = "visualization/figures"
 
 
 def read_data(results_path, yolo_path):
@@ -25,34 +23,34 @@ def read_data(results_path, yolo_path):
     return data_results, data_yolo
 
 
-results_path = os.path.join("results", RUN_FOLDER)
-simulation_results_path = os.path.join(results_path, "results.json")
-yolo_results_path = os.path.join(results_path, "yolo_results.json")
-# NOTE: Currently data searches to find corresponding timestep data is done 
-# many many times inside the visualization loop. If faster required, 
-# pre-process the data to the form data['agents'][timestep].
-data_results, data_yolo = read_data(simulation_results_path, yolo_results_path)
+def render_visualization(run_folder, carla_environment, interactive=False,
+                         skip_timesteps=0):
+    
+    results_path = os.path.join("results", run_folder)
+    simulation_results_path = os.path.join(results_path, "results.json")
+    yolo_results_path = os.path.join(results_path, "yolo_results.json")
+    # NOTE: Currently data searches to find corresponding timestep data is done 
+    # many many times inside the visualization loop. If faster required, 
+    # pre-process the data to the form data['agents'][timestep].
+    data_results, data_yolo = read_data(simulation_results_path, yolo_results_path)
 
-dataloader = DataLoader(CARLA_RUN_NAME)
-max_timesteps = dataloader.get_simulation_length()
-metadata_summary = dataloader.get_metadata_summary()
-agents = dataloader.get_entity_ids()
-x_waypoints, y_waypoints = zip(*dataloader.get_map()) # List of (x,y).
-waypoints = (x_waypoints, y_waypoints)
-x_waypoint_min, x_waypoint_max = min(x_waypoints), max(x_waypoints)
-y_waypoint_min, y_waypoint_max = min(x_waypoints), max(x_waypoints)
+    dataloader = DataLoader(carla_environment)
+    max_timesteps = dataloader.get_simulation_length()
+    metadata_summary = dataloader.get_metadata_summary()
+    agents = dataloader.get_entity_ids()
+    x_waypoints, y_waypoints = zip(*dataloader.get_map()) # List of (x,y).
+    waypoints = (x_waypoints, y_waypoints)
+    x_waypoint_min, x_waypoint_max = min(x_waypoints), max(x_waypoints)
+    y_waypoint_min, y_waypoint_max = min(x_waypoints), max(x_waypoints)
 
-agent_count = metadata_summary['n_vehicles']
-# NOTE Currently only two cars supported!
-view_car_indexes = [3, 6]
-
-
-def render_visualization(interactive=False, skip_timesteps=0):
+    agent_count = metadata_summary['n_vehicles']
+    # NOTE Currently only two cars supported!
+    view_car_indexes = [3, 6]
+        
     if interactive:
         plt.ion()
     else:
         # Ensure figures folder is created if interactive = False
-        folder = "visualization/figures"
         if not os.path.exists(folder):
             os.makedirs(folder)
 
@@ -89,8 +87,66 @@ def render_visualization(interactive=False, skip_timesteps=0):
             print(f"Saved figure {timestep + 1} / {max_timesteps}", end='\r')
         plt.close()
         timestep += 1
-        if interactive: # If recording video, timestep skips not applied
+        if interactive: # If recording video, timestep skips not applied!
             timestep += skip_timesteps
     print("done")
 
-render_visualization(interactive=IS_INTERACTIVE, skip_timesteps=SKIP_TIMESTEPS)
+
+def print_help():
+    help_text = "Ensure main.py has been run before this. If not, read the README.\n" \
+        "Usage: python main.py. Possible arguments:\n" \
+        "\t-h - Help\n" \
+        "\t--save_video - Disables interactive mode and saves each figure.\n" \
+        "\t\tUse utils/video.py to convert them to a video.\n" \
+        "\t--skip <integer> - In interactive mode when advancing skip <integer> frames.\n" \
+        "\t--environment <string> - The CARLA environment file name, stored under runs/.\n" \
+        "\t--run_folder <string> - Path of simulation results\n" \
+        "\n" \
+        "Example:\n" \
+        "python visualize.py --environment intersection_5_vehicles.hdf5 --run_folder " \
+        "medium-intersection_5_vehicles.hdf5-rsu_used_True-1681047827 --skip 20\n" \
+        "python visualize.py --environment intersection_5_vehicles.hdf5 --run_folder " \
+        "medium-intersection_5_vehicles.hdf5-rsu_used_True-1681047827 --save_video"
+        
+    print(help_text)
+
+
+if __name__ == "__main__":
+    opts, args = getopt.getopt(sys.argv[1:], "h", ["save_video", "skip=",
+                                                   "environment=", "run_folder="])
+    RUN = True
+    IS_INTERACTIVE = True
+    SKIP_TIMESTEPS = 0
+    RUN_FOLDER = ""
+    CARLA_DATA_NAME = ""
+    for opt, arg in opts:
+        if opt == "-h":
+            print_help()
+            RUN = False
+        if opt == "--save_video":
+            IS_INTERACTIVE = False
+        if opt == "--skip":
+            SKIP_TIMESTEPS = int(arg)
+        if opt == "--environment":
+            CARLA_DATA_NAME = arg
+        if opt == "--run_folder":
+            RUN_FOLDER = arg
+
+    if RUN:
+        if RUN_FOLDER == "" or CARLA_DATA_NAME == "":
+            print("Missing arguments. See -h for help")
+            sys.exit(2)
+
+        if not IS_INTERACTIVE and SKIP_TIMESTEPS > 0:
+            print("Cannot add skip argument if not interactive!")
+            sys.exit(2)
+
+        render_visualization(run_folder=RUN_FOLDER,
+                             carla_environment=CARLA_DATA_NAME,
+                             interactive=IS_INTERACTIVE, 
+                             skip_timesteps=SKIP_TIMESTEPS)
+        
+        if not IS_INTERACTIVE:
+            print(f"Video saved as figures to folder {folder}.\n" \
+                "Use utils/video.py to convert them to a video if necessary.")
+        print("Done.")
