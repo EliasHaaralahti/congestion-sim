@@ -119,14 +119,15 @@ if __name__ == "__main__":
     USE_RSU = True
     VERBOSE = True
     CARLA_ENVIRONMENT = "intersection_5_vehicles.hdf5"
-    opts, args = getopt.getopt(sys.argv[1:], "h", ["model=", "environment="])
+    opts, args = getopt.getopt(sys.argv[1:], "h", ["model=", "environment=",
+                                                   "no_rsu", "no_verbose"])
     for opt, arg in opts:
         if opt == "-h":
             print_help(MODEL_OPTIONS)
             RUN = False
         if opt == "--no_verbose":
             VERBOSE = False
-        if opt == "-no_rsu":
+        if opt == "--no_rsu":
             USE_RSU = False
         if opt == "--model":
             # If no commas, only model name is returned.
