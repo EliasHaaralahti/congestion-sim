@@ -28,7 +28,7 @@ class Processor():
         # These are pretty large to compensate the inaccuracy of distance detection.
         self.threshold_detection_radius_car = 15 # meters
         self.threshold_detection_radius_person = 6 # meters
-        self.threshold_congestigation_speed = 12 # km/h
+        self.threshold_congestigation_speed = 15 # km/h
         # meters, how far away from intersection to be counted as part of intersection
         # Binary classification (congested or not) is performed based on average speed.
         self.threshold_within_intersection_range = 30 # meters
@@ -68,34 +68,50 @@ class Processor():
         
         return closest_intersection
 
-    def process_detection(self, data: DetectionData) -> Tuple[float]:
+    def process_detection(self, is_agent_rsu, detection_data: DetectionData) -> Tuple[float]:
         focal_length = 30
-        height_in_frame = data.ymax - data.ymin
+        height_in_frame = detection_data.ymax - detection_data.ymin
         image_width = self.image_width
-        box_width_center = data.xmin + ((data.xmax - data.xmin) / 2)
+        box_width_center = detection_data.xmin + ((detection_data.xmax - detection_data.xmin) / 2)
         fov_angle = 90 # Camera fov should be 90.
         real_height = 0
 
-        if data.type == "car":
+        if detection_data.type == "car":
             real_height = 1500
-        elif data.type == "person":
+        elif detection_data.type == "person":
             real_height = 1700
 
         # (mm * mm) / px. Distance is in cm!
         distance = (real_height * focal_length) / height_in_frame
         distance = distance / 100 # cm to m. In Carla one coordinate unit = 1m
+
+        # NOTE: RSUs are 20 meters in air. Account for this if RSU.
+        # Use pythagoras theorem c = sqrt(a**2 + b**2 ). 
+        # c = calculated distance, a = RSU height. B is distance 
+        # in the simulation, as simulation does not count for height.
+        # b = - sqrt(c**2 - a**2)
+        if is_agent_rsu:
+            op_1 = distance**2 - 20**2
+            # If op_1 < 0, detection is closer than it should be 
+            # possible for it to be. In this case just use original 
+            # distance, as this is an error in distance calculation 
+            # and cannot be handled here.
+            if op_1 > 0:
+                distance = math.sqrt(op_1)
+
         width_offset = (box_width_center/image_width * fov_angle) - (fov_angle / 2)
-        id = f"{data.parent_id}-{data.detection_id}" 
-        return DetectedEntityState(id, data.type, distance, width_offset)
+        det_id = f"{detection_data.parent_id}-{detection_data.detection_id}" 
+        return DetectedEntityState(det_id, detection_data.type, distance, width_offset)
 
     def process_detections(self, data: OutputSummary) -> dict:
         detections: List[DetectionData] = data.detections
         processed_detections = []
+        is_agent_rsu = data.is_rsu
         for detection in detections:
-            detection_result = self.process_detection(detection)
+            detection_result = self.process_detection(is_agent_rsu, detection)
             processed_detections.append(detection_result)
         return processed_detections
-    
+
     def is_detection_another_agent(self, processed_agents, current_agent_name, 
                                    target_position, target_type):
         """
@@ -108,7 +124,7 @@ class Processor():
             # are always "real" and have not been detected multiple times.
             if not agent['detected']:
                 return False
-            
+
             # Assume car does not detect itself.
             if agent['id'] == current_agent_name:
                 continue
