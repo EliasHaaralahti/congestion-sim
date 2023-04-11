@@ -33,9 +33,9 @@
 
 ### Running the discrete-event simulation
 
-- Add a HDF5 datafile generated with CARLA under folder simulation/runs/. The filename can be provided in main.py or in data.py (change default parameter value). Currently main.py does not accept arguments.
-- Run python main.py. The simulation will run and create a json file under simulation/results. The results file contains the output of the simulation.
-- Run python visualize.py to visualize the results/results.json file. By changing the main function parameters the visualization will create a video or it will be interactive, which means the simulation is shown one step at a time and any button click progresses the simulation by SKIP_STEPS, which is defined in the visualize.py file. No button to close the window currently, recommended approach is to close the python process with ctrl+c. Might require sometimes clicking the window again after that.
+- Generate a HDF5 datafile with CARLA and place the file under `simulation/runs/`.
+- Run the DES simulation by executing main.py with proper command line arguments. For more information run the command `python main.py -h`. When the simulation is done, the output will be placed as json files under `simulation/results/<run_id>/`. The file `results.json` contains the simulation output, while the file `yolo_results.json` contains information about YOLO bounding boxes for visualization purposes.
+- To visualize the results of the DES simulation, run the file `visualize.py` with the proper command line arguments. See `python visualize.py -h` for more information. The visualization is either interactive or saves a video. To proceed in the interactive visualization, click any key.
 
 ## Division of work
 
