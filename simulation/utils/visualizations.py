@@ -75,9 +75,9 @@ def draw_information_view(ax: Axes, agent_count, data: World, timestep: int,
         text_y -= (text_y_decrease * 6)
 
 
-def draw_car_views(car_indexes, ax_names, axes: Axes, agent_names, 
-                   data_results, data_yolo, timestep, dataloader):
-    
+def draw_car_views(car_indexes, ax_ids, axes: Axes, agent_names, 
+                   data_results, data_yolo, timestep, dataloader,
+                   draw_caption=True):
     for i, car_index in enumerate(car_indexes):
         # List to keep count of label y coordinates.
         # This is an attempt to have less overlapping of labels.
@@ -101,10 +101,16 @@ def draw_car_views(car_indexes, ax_names, axes: Axes, agent_names,
         else:
             velocity = agent_data['velocity']
         total_agents = len(agent_names)
-        colors = [COLOR_MAP(1.*i/total_agents) for i in range(total_agents)]
-        axes[ax_names[i]].set_title(
-            f"Car ID: {agent_name}\nColor: {colors[i]}\nVelocity: {velocity:.1f}m/s")
-        axes[ax_names[i]].imshow(images)
+        #colors = [COLOR_MAP(1.*i/total_agents) for i in range(total_agents)]
+
+        if ax_ids is None: # Ax already given directly as parameter.
+            ax_current = axes
+        else:
+            ax_current = axes[ax_ids[i]]
+
+        ax_current.set_title(
+            f"Car ID: {agent_name}\nVelocity: {velocity:.1f}m/s")
+        ax_current.imshow(images)
 
         # Draw the yolo detections
         yolo_bounds = [
@@ -126,7 +132,10 @@ def draw_car_views(car_indexes, ax_names, axes: Axes, agent_names,
             # Rectangle(xy, width, height, ...
             rect = patches.Rectangle((x_min, y_min), width, height, linewidth=1,
                                     edgecolor='r', facecolor='none')
-            axes[ax_names[i]].add_patch(rect)
+            ax_current.add_patch(rect)
+
+            if not draw_caption:
+                continue
 
             # Find the parent of the detection (ie the agent itself)
             detection_agent = None          
@@ -161,7 +170,7 @@ def draw_car_views(car_indexes, ax_names, axes: Axes, agent_names,
                         break
                 else:
                     break
-            axes[ax_names[i]].text(
+            ax_current.text(
                 x_min, label_y, text, size=12, color='white',
                 path_effects=[pe.withStroke(linewidth=2, foreground="black")])
             

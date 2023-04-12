@@ -74,7 +74,7 @@ def render_visualization(run_folder, carla_environment, interactive=False,
         draw_information_view(axes["top centre"], agent_count, data_results, 
                               timestep, dataloader)
         draw_map(axes["bottom row"], waypoints, agents, data_results, timestep)
-        
+
         mng = plt.get_current_fig_manager()
         mng.full_screen_toggle()
         if interactive:
