@@ -9,7 +9,7 @@ import torch
 # Such as running on cpu/cuda with model.cpu() / model.cuda()
 
 models = {
-    "nano": "yolov5x",
+    "nano": "yolov5n",
     "small": "yolov5s",
     "medium": "yolov5m",
     "large": "yolov5l",
@@ -18,9 +18,11 @@ models = {
 
 class Model:
     def __init__(self, model_name):
-        model = models[model_name]
+        model_actual_name = models[model_name]
         self.model = torch.hub.load(
-            'ultralytics/yolov5', model, pretrained=True)
+            'ultralytics/yolov5', model_actual_name, pretrained=True)
+        device = self.model.parameters().__next__().device
+        print(f"Initialized model {model_actual_name} on device {device}")
 
     def forward(self, image: np.ndarray) -> object:
         return self.model(image)
