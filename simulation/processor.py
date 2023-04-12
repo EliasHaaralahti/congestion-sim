@@ -26,18 +26,23 @@ class Processor():
 
         # Meters, how far detections are assumed to be existing agents.
         # These are pretty large to compensate the inaccuracy of distance detection.
-        self.threshold_detection_radius_car = 15 # meters
+        self.threshold_detection_radius_car = 20 # meters. Way too high to attempt combat inaccuracy.
         self.threshold_detection_radius_person = 6 # meters
         self.threshold_congestigation_speed = 15 # km/h
+        # Below thresholds are inflated due to accuracy issues (many duplicate detections).
+        self.congestion_car_threshold = 30 # Min amount of cars for intersection to be congested.
+        self.congestion_pedestrian_treshold = 10 # Min amount of pedestrians for intersection to be congested.
         # meters, how far away from intersection to be counted as part of intersection
         # Binary classification (congested or not) is performed based on average speed.
-        self.threshold_within_intersection_range = 30 # meters
+        self.threshold_within_intersection_range = 50 # meters
         
 
     def get_distance(self, agent: Union[OutputSummary, Tuple], target: Tuple[int, int]) -> float:
         """
         Calculate distance between agent and a target point (usually detection).
         Can be used in analysis to for example, calculate if potential for crash.
+        
+        Parameter agent is either OutputSummary or Tuple.
         """
         if isinstance(agent, OutputSummary):
             agent_position = (agent.agent_x, agent.agent_y)
@@ -241,7 +246,7 @@ class Processor():
                 })
         return processed_agents
 
-    def get_intersection_statuses(self, world: World) -> List[IntersectionStatus]:
+    def get_intersection_statuses(self, world: World, original_agent_count: int) -> List[IntersectionStatus]:
         """
         Analyze intersection and get intersection status data object.
         """
@@ -291,21 +296,29 @@ class Processor():
             car_count = intersection_stats['car_count']
             # If car count is 0, the intersection status does not need to be updated.
             if car_count != 0:
+                car_count = car_count / original_agent_count # Normalize detections due to inaccuracy.
                 # Calculate average speed and convert m/s to km/h
                 average_speed = (sum(intersection_stats['speeds']) /
                                  len(intersection_stats['speeds'])) * 3.6
                 # Congestion is low by default. See if condition for high met.
                 if average_speed < self.threshold_congestigation_speed:
-                    intersection_stats['status'] = "congested"
+                    # ALSO account for amount of vehicles and pedestrians. If there are two
+                    # slow cars in the intersection, it doesn't mean it is congested.
+                    pedestrian_count = intersection_stats['human_count'] / original_agent_count # Normalize detections due to inaccuracy
+                    # If total of entities in intersection is more than thresholds summed, congested.
+                    total = car_count + pedestrian_count
+                    threshold = self.congestion_car_threshold + self.congestion_pedestrian_treshold
+                    if total > threshold:
+                        intersection_stats['status'] = "congested"
 
             statuses.append(intersection_stats)
         return statuses
 
-    def analyze(self, world: World):
+    def analyze(self, world: World, original_agent_count: int):
         """
         Perform analysis on the processed "world"
         """
-        world['intersection_statuses'] = self.get_intersection_statuses(world)
+        world['intersection_statuses'] = self.get_intersection_statuses(world, original_agent_count)
         return world
 
     def run(self):
@@ -318,6 +331,7 @@ class Processor():
             # Convert all yolo detections to DetectedAgent. These are used 
             # later to find possible new detected vehicles and convert them 
             # into "agents".
+            original_agent_count = len(self.data_pipe)
             for agent in self.data_pipe:
                 results = self.process_detections(self.data_pipe[agent])
                 processed_detections[agent] = results
@@ -328,7 +342,7 @@ class Processor():
             processed_agents = self.process_all(processed_detections)
 
             # Most of the actual analysis happens here to understand the 3D world
-            world: World = self.analyze(processed_agents)
+            world: World = self.analyze(processed_agents, original_agent_count)
 
             # Store the results, which will be saved under results/results.json
             self.result_storage_pipe['processing_results'][
