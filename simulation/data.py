@@ -138,6 +138,9 @@ if __name__ == "__main__":
     intersections = dataloader.get_intersections()
     print(f"Intersections: {intersections}")
 
+    metadata = dataloader.get_metadata_summary()
+    print(f"Metadata: {metadata}")
+
     agents = dataloader.get_entity_ids()
     print(f"Agent ids: {agents}")
     
