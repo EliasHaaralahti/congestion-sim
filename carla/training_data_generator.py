@@ -4,7 +4,7 @@ from recorder import Recorder
 
 def main():
     """
-    A main function that is responsible for creating the CARLA environment, spawning and
+    A main loop that is responsible for creating the CARLA environment, spawning and
     moving vehicles and collecting image data using RSUs. Image data can only be collected
     at one intersection at a time. To collect data from the second intersection,
     comment the code related to the first intersection (location and cameras) and uncomment

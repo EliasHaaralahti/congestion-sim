@@ -26,6 +26,7 @@ class CarlaEnv:
         self.reached_destination = {}
         self.vehicle_dimensions = {}
         self.pedestrian_dimensions = {}
+        self.congestion_statistics = {}
         self.img_width = img_width
         self.img_height = img_height
         self.n_frames = n_frames
@@ -148,7 +149,17 @@ class CarlaEnv:
         """
         intersection = carla.Location(x_coord, y_coord, z_coord)
         self.intersections.append(intersection)
+        intersection_id = f'intersection_{len(self.intersections)}'
+        self.congestion_statistics[intersection_id] = 0
         return intersection
+
+    def increment_congestion_statistics(self, speed_limit: float=30.0) -> None:
+        """Increment the number of frames that are congested."""
+        for i, intersection in enumerate(self.intersections):
+            intersection_id = f'intersection_{i+1}'
+            avg_velocity = self.get_avg_velocity(intersection)
+            if avg_velocity < 0.5 * speed_limit:
+                self.congestion_statistics[intersection_id] += 1
 
     def is_in_intersection(self, vehicle: object, intersection: object,
                            max_distance: int=50) -> bool:
@@ -168,7 +179,7 @@ class CarlaEnv:
                     n_vehicles += 1
                     velocity = math.hypot(vehicle.get_velocity().x, vehicle.get_velocity().y) * 3.6
                     velocities += velocity
-        avg_velocity = velocities / n_vehicles if n_vehicles > 0 else 0
+        avg_velocity = velocities / n_vehicles if n_vehicles > 0 else float('inf')
         return avg_velocity
 
     def spawn_vehicles(self, n_vehicles: int) -> None:
@@ -353,7 +364,8 @@ class CarlaEnv:
             'n_pedestrians': len(self.pedestrian_list),
             'vehicles': self.get_vehicle_information(),
             'sensors': self.get_sensor_information(),
-            'intersections': self.get_intersection_information()
+            'intersections': self.get_intersection_information(),
+            'congestion_statistics': self.congestion_statistics
         }
         return json.dumps(metadata)
 

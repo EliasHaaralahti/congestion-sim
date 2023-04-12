@@ -7,7 +7,6 @@ from torch.utils.data import DataLoader
 from torchvision.models import alexnet, AlexNet_Weights
 from torchvision import transforms
 from PIL import Image
-from numpy import ndarray
 
 class CongestionDetector:
     """
@@ -86,9 +85,8 @@ class CongestionDetector:
         print(f'Training finished in {training_time // 60} minutes, {training_time % 60} seconds')
         print(f'Best validation accuracy: {best_val_accuracy}')
 
-    def predict(self, img_array: ndarray) -> dict:
+    def predict(self, img: Image) -> dict:
         """Make predictions using the model. Returns a dictionary with the class probabilities."""
-        img = Image.fromarray(img_array)
         img_transform = transforms.Compose([
             transforms.Resize(size=256),
             transforms.CenterCrop(size=224),
@@ -101,10 +99,9 @@ class CongestionDetector:
             self.model.eval()
             output = self.model(img_tensor)
             exp_output = torch.exp(output)
-            values, _ = exp_output.topk(self.n_classes, dim=1)
             prediction = {}
-            prediction['congested'] = values.cpu().numpy()[0][0]
-            prediction['not_congested'] = values.cpu().numpy()[0][1]
+            prediction['congested'] = exp_output.cpu().numpy()[0][0]
+            prediction['not_congested'] = exp_output.cpu().numpy()[0][1]
             return prediction
 
     def evaluate(self, test_dataloader: DataLoader) -> None:
