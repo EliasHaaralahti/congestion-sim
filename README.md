@@ -1,4 +1,14 @@
-# EdgeML
+# CongestionSim
+
+### Aalto University project for course CS-E4875 - Research Project in Machine Learning, Data Science and Artificial Intelligence, 5 ECTS.
+- The goal of the project was to simulate a city with vehicles and pedestrians in CARLA. The results were stored in HDF5 format and processed by a DES simulation. We performed object recognition on the vehicles cameras and estimated position of detected objects to form a 2D world for analyzing traffic congestion in intersections. A separate CNN based deep learning model was also used to classify congestion status of an area from an image.
+
+![](https://github.com/EliasHaaralahti/CongestionSim/blob/main/graphics/CongestionSimGif2.gif)
+
+### The repository has the following components.
+- Folder `carla`, which is our CARLA integration and allows running simulations of varying sizes and storing data to HDF5 format.
+- Folder `congestion_detection`, which is the CNN based model to classify congestion status from a single image.
+- Folder `simulation`, which contains a DES simulation to process the CARLA simulation data, stored in HDF5 format. It also contains utilities for visualizing the DES simulation results and analyzing the data.
 
 ## Prerequisites
 
