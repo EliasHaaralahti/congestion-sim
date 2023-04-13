@@ -107,6 +107,7 @@ def main():
 
         while curr_frame < n_frames:
             env.world.tick()
+            env.increment_congestion_statistics()
             recorder.process_transforms(env.vehicle_list, env.transforms)
             recorder.process_velocities(env.vehicle_list, env.velocities)
             recorder.process_images(env.sensor_list, env.images)

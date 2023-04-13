@@ -30,6 +30,7 @@
 - Once you have created the HDF5 file using the instructions above, you can transform it into an image dataset by running `python make_dataset.py` in the `congestion_detection` directory. The resulting dataset will be saved to `congestion_detection/data`.
 - Now you can train the model by running `python train.py`. The model weights will be saved to `congestion_detection/models`.
 - Once you have trained the model, you can evaluate it using a separate test set by running `python evaluate.py`.
+- To detect congestion in the simulated scenarios, run `python classify_intersections.py`.
 
 ### Running the discrete-event simulation
 
@@ -41,8 +42,8 @@
 
 ### Aleksi
 
-- Simulating traffic and collecting sensor data using CARLA
-- Fine-tuning AlexNet-based congestion detection model
+- Simulating traffic and collecting sensor data using CARLA.
+- Fine-tuning AlexNet-based congestion detection model.
 
 ### Elias
 
