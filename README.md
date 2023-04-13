@@ -3,7 +3,10 @@
 ### Aalto University project for course CS-E4875 - Research Project in Machine Learning, Data Science and Artificial Intelligence, 5 ECTS.
 - The goal of the project was to estimate traffic congestion using sensors of vehicles. This was done by simulating a city with vehicles and pedestrians in CARLA and storing the results in HDF5 format. The results were then processed by a DES simulation that detects objects using the YOLOv5 model and estimates the position of detected objects in a 2D world relative to the camera. The 2D world is then used for analysis, such as congestion detection and very simple collision warning detection. A separate CNN based deep learning model was also trained to classify congestion status of an area from images produced by CARLA.
 
-![](https://github.com/EliasHaaralahti/CongestionSim/blob/main/graphics/CongestionSimGif2.gif)
+<p align="center">
+  <img src="https://github.com/EliasHaaralahti/CongestionSim/blob/main/graphics/CongestionSimGif2.gif" alt="graphics/CongestionSimGif2.gif GIF" />
+</p>
+
 
 ### The repository has the following components.
 - Folder `carla`, which is our CARLA integration and allows running simulations of varying sizes and storing data to HDF5 format.
