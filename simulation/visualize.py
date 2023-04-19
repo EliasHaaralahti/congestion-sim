@@ -38,10 +38,9 @@ def render_visualization(run_folder, carla_environment, interactive=False,
     max_timesteps = dataloader.get_simulation_length()
     metadata_summary = dataloader.get_metadata_summary()
     agents = dataloader.get_entity_ids()
+    size = get_relevant_coordinates(data_results)
     x_waypoints, y_waypoints = zip(*dataloader.get_map()) # List of (x,y).
     waypoints = (x_waypoints, y_waypoints)
-    x_waypoint_min, x_waypoint_max = min(x_waypoints), max(x_waypoints)
-    y_waypoint_min, y_waypoint_max = min(x_waypoints), max(x_waypoints)
 
     agent_count = metadata_summary['n_vehicles']
     # NOTE Currently only two cars supported!
@@ -57,15 +56,13 @@ def render_visualization(run_folder, carla_environment, interactive=False,
     timestep = 0
     max_timesteps = dataloader.get_simulation_length()
     while timestep <= max_timesteps - 1:
-        #fig, axes = plt.subplots(2, 2, figsize=(15, 15))
-        #fig, axes = plt.subplot_mosaic("ABC;DDD")
+        # TODO: Would it be possible to create the figure outside the loop?
         fig, axes = plt.subplot_mosaic(
             [["top left", "top centre", "top right"],
             ["bottom row", "bottom row", "bottom row"]], 
             height_ratios=[1, 1.5], width_ratios=[1, 1, 1]
         )
-
-        fig.suptitle(f"Simulation timestep {timestep}")
+        fig.suptitle(f"Simulation timestep {timestep}", fontsize=26)
 
         #axes[1,1].legend()
         view_axes = ["top left", "top right"]
@@ -73,7 +70,7 @@ def render_visualization(run_folder, carla_environment, interactive=False,
                        data_yolo, timestep, dataloader)
         draw_information_view(axes["top centre"], agent_count, data_results, 
                               timestep, dataloader)
-        draw_map(axes["bottom row"], waypoints, agents, data_results, timestep)
+        draw_map(axes["bottom row"], waypoints, data_results, timestep, size)
 
         mng = plt.get_current_fig_manager()
         mng.full_screen_toggle()

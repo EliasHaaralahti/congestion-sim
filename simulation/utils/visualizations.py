@@ -47,7 +47,9 @@ def draw_information_view(ax: Axes, agent_count, data: World, timestep: int,
         intersection_id = intersection['id']
         status = intersection['status']
         car_count = intersection['car_count']
+        car_count_norm = intersection['car_count_norm']
         human_count = intersection['human_count']
+        human_count_norm = intersection['human_count_norm']
         speeds = intersection['speeds']
         # TODO: Same calculation performed in processor.py
         # just store result there?
@@ -60,10 +62,11 @@ def draw_information_view(ax: Axes, agent_count, data: World, timestep: int,
         intersection_id_number = intersection_id.split('_')[1]
         ax.text(text_x, text_y, f"Intersection {intersection_id_number} result:", 
                 size=13, color=text_color)
-        ax.text(text_x, text_y - text_y_decrease, f"Total cars: {car_count}", 
+        ax.text(text_x, text_y - text_y_decrease, 
+                f"Total cars: {car_count}, norm: {round(car_count_norm, 2)}", 
                 size=10, color=text_color)
         ax.text(text_x, text_y - (text_y_decrease * 2), 
-                f"Total humans: {human_count}", 
+                f"Total humans: {human_count}, norm: {round(human_count_norm, 2)}", 
                 size=10, color=text_color)
         ax.text(text_x, text_y - (text_y_decrease * 3), 
                 f"Average speed: {round(average_speed, 1)} km/h", 
@@ -109,7 +112,7 @@ def draw_car_views(car_indexes, ax_ids, axes: Axes, agent_names,
             ax_current = axes[ax_ids[i]]
 
         ax_current.set_title(
-            f"Car ID: {agent_name}\nVelocity: {velocity:.1f}m/s")
+            f"Car ID: {agent_name}\nVelocity: {velocity:.1f}m/s", fontsize=16)
         ax_current.imshow(images)
 
         # Draw the yolo detections
@@ -176,18 +179,24 @@ def draw_car_views(car_indexes, ax_ids, axes: Axes, agent_names,
             
             labels_y_coords.append(label_y)
 
-def draw_map(ax: Axes, waypoints: List[Tuple], agents, data, timestep):
+def draw_map(ax: Axes, waypoints: List[Tuple], data, timestep, size, map_auto=True):
     """
     Draw the top-view map visualization and markers for cars and humans.
     """
     x_waypoints, y_waypoints = waypoints
     human_marker, car_marker, rsu_marker = get_human_marker(), get_car_marker(), get_rsu_marker()
-    min_x, max_x, min_y, max_y = get_relevant_coordinates(data)
+    min_x, max_x, min_y, max_y = size
 
     ax.set_title("2D scene map")
     ax.scatter(x_waypoints, y_waypoints, c='k', s=1, zorder=0)
-    ax.set_xlim([min_x-60, max_x+60])
-    ax.set_ylim([min_y-60, max_y+60])
+    if map_auto:
+        min_x -= 60
+        max_y += 60
+        min_y -= 60
+        max_y += 60
+
+    ax.set_xlim([min_x, max_x])
+    ax.set_ylim([min_y, max_y])
 
     timestep_agents = [
         d for d in data['agents'] if d['timestep'] == timestep]
