@@ -1,29 +1,36 @@
 # CongestionSim
 
-### Aalto University project for course CS-E4875 - Research Project in Machine Learning, Data Science and Artificial Intelligence, 5 ECTS.
-- The goal of the project was to estimate traffic congestion using sensors of vehicles. This was done by simulating a city with vehicles and pedestrians in CARLA and storing the results in HDF5 format. The results were then processed by a DES simulation that detects objects using the YOLOv5 model and estimates the position of detected objects in a 2D world relative to the camera. The 2D world is then used for analysis, such as congestion detection and very simple collision warning detection. A separate CNN based deep learning model was also trained to classify congestion status of an area from images produced by CARLA.
+## Aalto University project for course CS-E4875 - Research Project in Machine Learning, Data Science and Artificial Intelligence, 5 ECTS.
+
+The goal of the project was to estimate traffic congestion using sensors of vehicles. This was done by simulating a city with vehicles and pedestrians in CARLA and storing the results in HDF5 format. The results were then processed by a discrete-event simulation (DES) that detects objects using the YOLOv5 model and estimates the position of detected objects in a 2D world relative to the camera. The 2D world is then used for analysis, such as congestion detection and very simple collision warning detection. A separate CNN-based deep learning model was also trained to classify the congestion status of an area from images produced by CARLA.
 
 <p align="center">
   <img src="https://github.com/EliasHaaralahti/congestion-sim/blob/main/graphics/CongestionSimGif2.gif" alt="graphics/CongestionSimGif2.gif" />
 </p>
 
+## High-level architecture of our system
 
-### The repository has the following components.
+<p align="center">
+  <img src="https://github.com/EliasHaaralahti/congestion-sim/blob/main/graphics/architecture.png" alt="graphics/architecture.png" />
+</p>
+
+## The repository has the following components:
+
 - Folder `carla`, which is our CARLA integration and allows running simulations of varying sizes and storing data to HDF5 format.
-- Folder `congestion_detection`, which is the CNN based model to classify congestion status from a single image.
+- Folder `congestion_detection`, which is the CNN-based model to classify congestion status from a single image.
 - Folder `simulation`, which contains a DES simulation to process the CARLA simulation data, stored in HDF5 format. It also contains utilities for visualizing the DES simulation results and analyzing the data.
 
 ## Prerequisites
 
 - Python 3.8 or 3.9
   - Python 3.8 is required for simulating the traffic because CARLA does not support newer versions.
-  - If you only want to run the discrete-event simulation, you can also use Python 3.9, which PyTorch supports.
+  - If you only want to run the discrete-event simulation, you can also use Python 3.9, which is supported by PyTorch.
 - [CARLA](https://carla.org/)
 
 ## Installation
 
 - Install the required dependencies by running `pip install -r requirements.txt`.
-  - The requirement file has Torch CUDA version, which may or may not cause problems if CUDA/GPU is not available. Alternatively, you can install the CPU version of PyTorch.
+  - The requirement file has Torch CUDA version, which may or may not cause problems if CUDA or GPU is not available. Alternatively, you can install the CPU version of PyTorch.
 
 ## Running the project
 
