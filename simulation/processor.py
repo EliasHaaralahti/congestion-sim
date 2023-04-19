@@ -30,10 +30,9 @@ class Processor():
         self.threshold_detection_radius_person = 6 # meters
         self.threshold_congestigation_speed = 15 # km/h
         # Below thresholds are inflated due to accuracy issues (many duplicate detections).
-        self.congestion_car_threshold = 30 # Min amount of cars for intersection to be congested.
-        self.congestion_pedestrian_treshold = 10 # Min amount of pedestrians for intersection to be congested.
+        self.congestion_car_threshold = 1 # Min amount of cars for intersection to be congested.
+        self.congestion_pedestrian_treshold = 0.3 # Min amount of pedestrians for intersection to be congested.
         # meters, how far away from intersection to be counted as part of intersection
-        # Binary classification (congested or not) is performed based on average speed.
         self.threshold_within_intersection_range = 50 # meters
         
 
@@ -157,7 +156,9 @@ class Processor():
         # where v is in km/h and result in meters.
         velocity_ms = agent_state.velocity # in m/s, convert to km/h
         velocity_kmh = velocity_ms * 3.6 # km/h
-        braking_distance = ((velocity_kmh / 10) ** 2) / 2 # meters
+        # rough estimation of braking distance in meters
+        # 30km/h produces 4.5 meter distance.
+        braking_distance = ((velocity_kmh / 10) ** 2) / 2
 
         # Add one meter to braking distance to account for unknown target velocity
         # and give some time to brake. The simulation is not capable of detecting 
@@ -293,10 +294,13 @@ class Processor():
 
 
             # Revise intersection status now that entities have been counted.
-            car_count = intersection_stats['car_count']
+
+            # Normalize detections due to inaccuracy.
+            intersection_stats['car_count_norm'] = car_count_norm = intersection_stats['car_count'] / original_agent_count
+            intersection_stats['human_count_norm'] = pedestrian_count_norm = (intersection_stats['human_count'] /
+                                                                         original_agent_count) # Normalize detections due to inaccuracy
             # If car count is 0, the intersection status does not need to be updated.
-            if car_count != 0:
-                car_count = car_count / original_agent_count # Normalize detections due to inaccuracy.
+            if intersection_stats['car_count'] != 0:
                 # Calculate average speed and convert m/s to km/h
                 average_speed = (sum(intersection_stats['speeds']) /
                                  len(intersection_stats['speeds'])) * 3.6
@@ -304,11 +308,10 @@ class Processor():
                 if average_speed < self.threshold_congestigation_speed:
                     # ALSO account for amount of vehicles and pedestrians. If there are two
                     # slow cars in the intersection, it doesn't mean it is congested.
-                    pedestrian_count = intersection_stats['human_count'] / original_agent_count # Normalize detections due to inaccuracy
                     # If total of entities in intersection is more than thresholds summed, congested.
-                    total = car_count + pedestrian_count
+                    total_norm = car_count_norm + pedestrian_count_norm
                     threshold = self.congestion_car_threshold + self.congestion_pedestrian_treshold
-                    if total > threshold:
+                    if total_norm > threshold:
                         intersection_stats['status'] = "congested"
 
             statuses.append(intersection_stats)
