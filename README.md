@@ -4,8 +4,9 @@
 
 The goal of the project was to estimate traffic congestion using sensors of vehicles. This was done by simulating a city with vehicles and pedestrians in CARLA and storing the results in HDF5 format. The results were then processed by a discrete-event simulation (DES) that detects objects using the YOLOv5 model and estimates the position of detected objects in a 2D world relative to the camera. The 2D world is then used for analysis, such as congestion detection and very simple collision warning detection. A separate CNN-based deep learning model was also trained to classify the congestion status of an area from images produced by CARLA.
 
-<h3>Note about below visualization:</h3> The below visualization shows three car views and a 2D top view of the CARLA city, as processed by the DES simulation from vehicle camera data. The rectangle shaped markers represent vehicles and static cameras, circles are detected objects, with the expection of pedestrians markers, which have a human shape. The simulation has clear limitations currently, such as slightly inaccurate distance estimation, which creates duplicate detections and a lot of flickering in the visualization. The analysis is also performed one simulation step at a time, which limits the system from being able to average detection results of track objects for more consistent results.
-&nbsp;
+## DES simulation visualization
+The below visualization shows three car views and a 2D top view of the CARLA city, as processed by the DES simulation from vehicle camera data. The rectangle shaped markers represent vehicles and static cameras, circles are detected objects, with the expection of pedestrians markers, which have a human shape. The simulation has clear limitations currently, such as slightly inaccurate distance estimation, which creates duplicate detections and a lot of flickering in the visualization. The analysis is also performed one simulation step at a time, which limits the system from being able to average detection results of track objects for more consistent results.
+
 <p align="center">
   <img src="https://github.com/EliasHaaralahti/congestion-sim/blob/main/graphics/CongestionSimGif2.gif" alt="graphics/CongestionSimGif2.gif" />
 </p>
